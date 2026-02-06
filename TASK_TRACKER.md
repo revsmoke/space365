@@ -33,7 +33,7 @@
 | `T10` Kiosk mode | `DONE` | T9,T7 | T11 |
 | `T11` Admin scope + privacy | `DONE` | T2,T7,T9 | Integration |
 | `T12` Personal overlays (Phase 2) | `PENDING` | T3,T4,T7,T9 | Phase 2 integration |
-| `T13` Search + fast travel (Phase 2) | `PENDING` | T9 | Phase 2 integration |
+| `T13` Search + fast travel (Phase 2) | `DONE` | T9 | Phase 2 integration |
 | `T14` Teams tab SSO (optional) | `PENDING` | T9,P-4 | Optional release |
 
 ## Checkpoint log
@@ -55,3 +55,4 @@
 - 2026-02-05 local: completed `T8` delta reconciliation commit `2bad15a`
 - 2026-02-05 local: completed `T9` with commit `336413f`
 - 2026-02-05 local: completed `T10` with commit `201abb1`
+- 2026-02-05 local: completed `T11` with commit `39bfc5a`

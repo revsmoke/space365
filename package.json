@@ -1,0 +1,9 @@
+{
+  "name": "space365",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Space365 monorepo scaffold",
+  "scripts": {
+    "test": "bun test"
+  }
+}

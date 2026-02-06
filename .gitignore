@@ -1,0 +1,8 @@
+.env
+tokens/entra_application_redirect_uris.csv
+tokens/jwt.ms
+web/.DS_Store
+tokens/www.tpgarchitecture.com.pem
+tokens/www_tpgarchitecture_com.crt
+.DS_Store
+tokens

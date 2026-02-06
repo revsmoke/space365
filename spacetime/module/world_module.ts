@@ -1,3 +1,5 @@
+import { createChannelAggregator } from "./channel_aggregates";
+
 export type ChannelMessageEventType =
   | "channel.message.created"
   | "channel.message.updated"
@@ -42,6 +44,7 @@ export type PresenceState = {
 type PresenceSubscriber = (state: PresenceState) => void;
 
 export function createWorldModule() {
+  const channelAggregator = createChannelAggregator({ alpha: 0.3 });
   const roomStates = new Map<string, RoomState>();
   const subscribers = new Map<string, Set<RoomSubscriber>>();
   const presenceStates = new Map<string, PresenceState>();
@@ -75,6 +78,12 @@ export function createWorldModule() {
           : current.react_count,
       last_activity_at: event.occurred_at,
     };
+
+    channelAggregator.ingest({
+      channel_id: event.context.channel_id,
+      event_type: event.event_type,
+      occurred_at: event.occurred_at,
+    });
 
     roomStates.set(event.context.channel_id, next);
     emitRoomUpdate(event.context.channel_id, next);
@@ -125,6 +134,10 @@ export function createWorldModule() {
 
   function getRoomState(channelId: string): RoomState | undefined {
     return roomStates.get(channelId);
+  }
+
+  function getChannelAggregate(channelId: string, nowIsoTimestamp: string) {
+    return channelAggregator.getSnapshot(channelId, nowIsoTimestamp);
   }
 
   function subscribePresence(
@@ -186,5 +199,6 @@ export function createWorldModule() {
     subscribePresence,
     getRoomState,
     getPresence,
+    getChannelAggregate,
   };
 }

@@ -29,8 +29,8 @@
 | `T6` Presence pipeline | `DONE` | T2,T3,T4 | T9 |
 | `T7` Message aggregates | `DONE` | T2,T3,T4,T5(opt) | T9,T10,T11,T12 |
 | `T8` Idempotency + delta reconcile | `DONE` | T2,T3,T7 | I3 |
-| `T9` Client live updates | `IN_PROGRESS` | T2,T4,T6,T7 | T10,T11,T12,T13,T14 |
-| `T10` Kiosk mode | `PENDING` | T9,T7 | T11 |
+| `T9` Client live updates | `DONE` | T2,T4,T6,T7 | T10,T11,T12,T13,T14 |
+| `T10` Kiosk mode | `IN_PROGRESS` | T9,T7 | T11 |
 | `T11` Admin scope + privacy | `PENDING` | T2,T7,T9 | Integration |
 | `T12` Personal overlays (Phase 2) | `PENDING` | T3,T4,T7,T9 | Phase 2 integration |
 | `T13` Search + fast travel (Phase 2) | `PENDING` | T9 | Phase 2 integration |
@@ -52,3 +52,4 @@
 - 2026-02-05 20:06:15 local: created and pushed branch `main-backup-2026-02-05-200615`
 - 2026-02-05 local: completed `T8` (local replay + delta cursor path)
 - 2026-02-05 local: completed `T8` idempotency commit `563dae8`
+- 2026-02-05 local: completed `T8` delta reconciliation commit `2bad15a`

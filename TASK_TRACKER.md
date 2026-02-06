@@ -1,6 +1,6 @@
 # Space365 Live Task Tracker
 
-- Last updated: 2026-02-06
+- Last updated: 2026-02-06 16:05 local
 - Source of truth for sequencing: `PLAN.md`
 - Execution rule: no task starts before dependencies are `DONE`.
 - Verification rule: each task requires tests written first, passing tests, and an atomic commit.
@@ -17,6 +17,11 @@
 - `P-3` Public HTTPS webhook endpoint reachable by Graph
 - `P-4` Teams app configuration (for T14 only)
 
+### External prerequisite evidence (local)
+- `P-1` partial evidence found in `/Users/twoedge/Dev/space365/.env` (app + tenant identifiers present).
+- `P-2` still pending verification (no explicit consent confirmation flag/evidence yet).
+- `P-3` partial evidence found in `/Users/twoedge/Dev/space365/tokens/entra_application_redirect_uris.csv` (public HTTPS redirect URI exists); webhook reachability still pending explicit validation.
+
 ## Task board
 | Task | Status | Depends on | Blocks |
 |---|---|---|---|
@@ -32,7 +37,7 @@
 | `T9` Client live updates | `DONE` | T2,T4,T6,T7 | T10,T11,T12,T13,T14 |
 | `T10` Kiosk mode | `DONE` | T9,T7 | T11 |
 | `T11` Admin scope + privacy | `DONE` | T2,T7,T9 | Integration |
-| `T12` Personal overlays (Phase 2) | `PENDING` | T3,T4,T7,T9 | Phase 2 integration |
+| `T12` Personal overlays (Phase 2) | `DONE` | T3,T4,T7,T9 | Phase 2 integration |
 | `T13` Search + fast travel (Phase 2) | `DONE` | T9 | Phase 2 integration |
 | `T14` Teams tab SSO (optional) | `PENDING` | T9,P-4 | Optional release |
 
@@ -59,3 +64,6 @@
 - 2026-02-05 local: completed `T13` with commit `0b294b9`
 - 2026-02-05 20:53:40 local: created and pushed tag `checkpoint-2026-02-05-205340`
 - 2026-02-05 20:53:40 local: created and pushed branch `main-backup-2026-02-05-205340`
+- 2026-02-06 16:02:10 local: created and pushed tag `checkpoint-2026-02-06-160210`
+- 2026-02-06 16:02:10 local: created and pushed branch `main-backup-2026-02-06-160210`
+- 2026-02-06 local: completed `T12` with commit `d8f6037`

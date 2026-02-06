@@ -51,3 +51,4 @@
 - 2026-02-05 20:06:15 local: created and pushed tag `checkpoint-2026-02-05-200615`
 - 2026-02-05 20:06:15 local: created and pushed branch `main-backup-2026-02-05-200615`
 - 2026-02-05 local: completed `T8` (local replay + delta cursor path)
+- 2026-02-05 local: completed `T8` idempotency commit `563dae8`

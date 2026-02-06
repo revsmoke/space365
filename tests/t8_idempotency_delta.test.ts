@@ -3,6 +3,7 @@ import { createWorldModule, type ChannelMessageEvent } from "../spacetime/module
 import {
   replayChannelEvents,
   createDeltaCursorStore,
+  reconcileFromDelta,
 } from "../ingest/src/reconcile";
 
 test("T8 replay is order-stable with idempotent event IDs", () => {
@@ -43,4 +44,27 @@ test("T8 delta cursor store keeps latest cursor per resource", () => {
   store.set("teams/team-1/channels", "cursor-2");
 
   expect(store.get("teams/team-1/channels")).toBe("cursor-2");
+});
+
+test("T8 reconcileFromDelta applies events and updates cursor", () => {
+  const world = createWorldModule();
+  const store = createDeltaCursorStore();
+
+  reconcileFromDelta({
+    world,
+    resource: "teams/team-1/channels/channel-1/messages",
+    cursorStore: store,
+    nextCursor: "cursor-3",
+    events: [
+      {
+        event_id: "evt-3",
+        event_type: "channel.message.created",
+        occurred_at: "2026-02-06T00:00:02.000Z",
+        context: { team_id: "team-1", channel_id: "channel-1" },
+      },
+    ],
+  });
+
+  expect(world.getRoomState("channel-1")?.msg_count).toBe(1);
+  expect(store.get("teams/team-1/channels/channel-1/messages")).toBe("cursor-3");
 });

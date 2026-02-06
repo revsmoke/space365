@@ -29,3 +29,14 @@ export function createDeltaCursorStore() {
     },
   };
 }
+
+export function reconcileFromDelta(input: {
+  world: WorldLike;
+  resource: string;
+  cursorStore: ReturnType<typeof createDeltaCursorStore>;
+  nextCursor: string;
+  events: ChannelMessageEvent[];
+}): void {
+  replayChannelEvents(input.world, input.events);
+  input.cursorStore.set(input.resource, input.nextCursor);
+}

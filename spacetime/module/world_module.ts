@@ -24,9 +24,28 @@ export type RoomState = {
 
 type RoomSubscriber = (state: RoomState) => void;
 
+export type PresenceChangedEvent = {
+  event_id: string;
+  occurred_at: string;
+  user_id: string;
+  availability: string;
+  activity: string;
+};
+
+export type PresenceState = {
+  user_id: string;
+  availability: string;
+  activity: string;
+  last_updated: string;
+};
+
+type PresenceSubscriber = (state: PresenceState) => void;
+
 export function createWorldModule() {
   const roomStates = new Map<string, RoomState>();
   const subscribers = new Map<string, Set<RoomSubscriber>>();
+  const presenceStates = new Map<string, PresenceState>();
+  const presenceSubscribers = new Map<string, Set<PresenceSubscriber>>();
   const seenEvents = new Set<string>();
 
   function ingestChannelMessageEvent(event: ChannelMessageEvent): void {
@@ -61,6 +80,24 @@ export function createWorldModule() {
     emitRoomUpdate(event.context.channel_id, next);
   }
 
+  function ingestPresenceChanged(event: PresenceChangedEvent): void {
+    if (seenEvents.has(event.event_id)) {
+      return;
+    }
+
+    seenEvents.add(event.event_id);
+
+    const next: PresenceState = {
+      user_id: event.user_id,
+      availability: event.availability,
+      activity: event.activity,
+      last_updated: event.occurred_at,
+    };
+
+    presenceStates.set(event.user_id, next);
+    emitPresenceUpdate(event.user_id, next);
+  }
+
   function subscribeRoom(
     channelId: string,
     callback: RoomSubscriber,
@@ -90,6 +127,36 @@ export function createWorldModule() {
     return roomStates.get(channelId);
   }
 
+  function subscribePresence(
+    userId: string,
+    callback: PresenceSubscriber,
+  ): () => void {
+    const userSubscribers =
+      presenceSubscribers.get(userId) ?? new Set<PresenceSubscriber>();
+    userSubscribers.add(callback);
+    presenceSubscribers.set(userId, userSubscribers);
+
+    const current = presenceStates.get(userId);
+    if (current) {
+      callback(current);
+    }
+
+    return () => {
+      const existing = presenceSubscribers.get(userId);
+      if (!existing) {
+        return;
+      }
+      existing.delete(callback);
+      if (existing.size === 0) {
+        presenceSubscribers.delete(userId);
+      }
+    };
+  }
+
+  function getPresence(userId: string): PresenceState | undefined {
+    return presenceStates.get(userId);
+  }
+
   function emitRoomUpdate(channelId: string, state: RoomState): void {
     const roomSubscribers = subscribers.get(channelId);
     if (!roomSubscribers) {
@@ -101,9 +168,23 @@ export function createWorldModule() {
     }
   }
 
+  function emitPresenceUpdate(userId: string, state: PresenceState): void {
+    const userSubscribers = presenceSubscribers.get(userId);
+    if (!userSubscribers) {
+      return;
+    }
+
+    for (const callback of userSubscribers.values()) {
+      callback(state);
+    }
+  }
+
   return {
     ingestChannelMessageEvent,
+    ingestPresenceChanged,
     subscribeRoom,
+    subscribePresence,
     getRoomState,
+    getPresence,
   };
 }

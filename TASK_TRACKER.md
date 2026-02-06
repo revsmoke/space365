@@ -26,8 +26,8 @@
 | `T3` Graph webhook validation | `DONE` | T0,T1,P-1,P-3 | T5,T6,T7,T8,T12 |
 | `T4` Membership sync | `DONE` | T2,P-1,P-2 | T6,T7,T9,T11,T12 |
 | `T5` Encrypted payload handling (opt) | `PENDING` | T3 | T7 |
-| `T6` Presence pipeline | `IN_PROGRESS` | T2,T3,T4 | T9 |
-| `T7` Message aggregates | `PENDING` | T2,T3,T4,T5(opt) | T9,T10,T11,T12 |
+| `T6` Presence pipeline | `DONE` | T2,T3,T4 | T9 |
+| `T7` Message aggregates | `IN_PROGRESS` | T2,T3,T4,T5(opt) | T9,T10,T11,T12 |
 | `T8` Idempotency + delta reconcile | `PENDING` | T2,T3,T7 | I3 |
 | `T9` Client live updates | `PENDING` | T2,T4,T6,T7 | T10,T11,T12,T13,T14 |
 | `T10` Kiosk mode | `PENDING` | T9,T7 | T11 |
@@ -45,3 +45,4 @@
 - 2026-02-05 local: completed `T3` (local simulated validation path)
 - 2026-02-05 local: completed `T3` with commit `47646d9`
 - 2026-02-05 local: completed `T4` (fixture-driven local sync path)
+- 2026-02-05 local: completed `T4` with commit `c4603df`

@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "description": "Space365 monorepo scaffold",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "graph:validate-credentials": "bun run scripts/validate-graph-credentials.ts"
   }
 }

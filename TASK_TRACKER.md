@@ -1,6 +1,6 @@
 # Space365 Live Task Tracker
 
-- Last updated: 2026-02-06 16:05 local
+- Last updated: 2026-07-02 04:40 local
 - Source of truth for sequencing: `PLAN.md`
 - Execution rule: no task starts before dependencies are `DONE`.
 - Verification rule: each task requires tests written first, passing tests, and an atomic commit.
@@ -18,9 +18,9 @@
 - `P-4` Teams app configuration (for T14 only)
 
 ### External prerequisite evidence (local)
-- `P-1` partial evidence found in `/Users/twoedge/Dev/space365/.env` (app + tenant identifiers present).
-- `P-2` still pending verification (no explicit consent confirmation flag/evidence yet).
-- `P-3` partial evidence found in `/Users/twoedge/Dev/space365/tokens/entra_application_redirect_uris.csv` (public HTTPS redirect URI exists); webhook reachability still pending explicit validation.
+- `P-1` verified for app-only Graph auth using `.env` secret + `APPINFO.md` app metadata.
+- `P-2` verified for app-only Teams read path: `GET /teams?$top=1` returned `200`.
+- `P-3` still pending: public webhook URL and Graph subscription validation are not yet verified.
 
 ## Task board
 | Task | Status | Depends on | Blocks |
@@ -67,3 +67,6 @@
 - 2026-02-06 16:02:10 local: created and pushed tag `checkpoint-2026-02-06-160210`
 - 2026-02-06 16:02:10 local: created and pushed branch `main-backup-2026-02-06-160210`
 - 2026-02-06 local: completed `T12` with commit `d8f6037`
+- 2026-07-02 04:35:28 local: created and pushed tag `checkpoint-2026-07-02-043528`
+- 2026-07-02 04:35:28 local: created and pushed branch `main-backup-2026-07-02-043528`
+- 2026-07-02 local: validated app-only Graph credentials and Teams read path.

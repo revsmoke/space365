@@ -1,7 +1,7 @@
 import type {
   createPersonalOverlayStore,
   PersonalQuest,
-} from "../../spacetime/module/personal_overlays";
+} from "../../spacetime/sim/personal_overlays";
 import type { createGraphOBOProxy, GraphOverlayRoute } from "../../ingest/src/graph_proxy";
 
 type PersonalOverlayStore = ReturnType<typeof createPersonalOverlayStore>;

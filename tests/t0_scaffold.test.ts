@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { test, expect } from "bun:test";
 
 const requiredDirectories = [
-  "spacetime/module",
+  "spacetime/sim",
   "ingest/src",
   "web/client",
   "web/admin",

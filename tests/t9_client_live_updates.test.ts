@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
-import { createWorldModule } from "../spacetime/module/world_module";
-import { createMembershipStore } from "../spacetime/module/membership_sync";
+import { createWorldModule } from "../spacetime/sim/world_module";
+import { createMembershipStore } from "../spacetime/sim/membership_sync";
 import { createLiveClient } from "../web/client/live_client";
 
 test("T9 client receives live room updates for authorized channel", async () => {

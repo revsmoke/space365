@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import {
   createWorldModule,
   type ChannelMessageEvent,
-} from "../spacetime/module/world_module";
+} from "../spacetime/sim/world_module";
 
 test("T2 reducer updates room state and emits subscription update", async () => {
   const world = createWorldModule();

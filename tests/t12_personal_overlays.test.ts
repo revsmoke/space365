@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import {
   createPersonalOverlayStore,
   type PersonalQuest,
-} from "../spacetime/module/personal_overlays";
+} from "../spacetime/sim/personal_overlays";
 import {
   createGraphOBOProxy,
   type GraphFetchResponse,

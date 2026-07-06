@@ -1,4 +1,4 @@
-import type { ChannelMessageEvent } from "../../spacetime/module/world_module";
+import type { ChannelMessageEvent } from "../../spacetime/sim/world_module";
 
 type WorldLike = {
   ingestChannelMessageEvent: (event: ChannelMessageEvent) => void;

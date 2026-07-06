@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
-import { createMembershipStore } from "../spacetime/module/membership_sync";
-import { createAdminConfigStore } from "../spacetime/module/admin_config";
+import { createMembershipStore } from "../spacetime/sim/membership_sync";
+import { createAdminConfigStore } from "../spacetime/sim/admin_config";
 import {
   createFastTravelLinkStore,
   createSearchFastTravelService,

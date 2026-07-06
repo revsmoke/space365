@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { createWorldModule } from "../spacetime/module/world_module";
+import { createWorldModule } from "../spacetime/sim/world_module";
 
 test("T6 presence change emits presence subscription update", async () => {
   const world = createWorldModule();

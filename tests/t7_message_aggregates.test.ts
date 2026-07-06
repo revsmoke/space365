@@ -2,8 +2,8 @@ import { test, expect } from "bun:test";
 import {
   createChannelAggregator,
   type AggregateEvent,
-} from "../spacetime/module/channel_aggregates";
-import { createWorldModule } from "../spacetime/module/world_module";
+} from "../spacetime/sim/channel_aggregates";
+import { createWorldModule } from "../spacetime/sim/world_module";
 
 test("T7 computes 1m/5m/1h windows", () => {
   const agg = createChannelAggregator({ alpha: 0.5 });

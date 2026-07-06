@@ -1,5 +1,5 @@
-import type { createMembershipStore } from "../../spacetime/module/membership_sync";
-import type { createWorldModule, RoomState } from "../../spacetime/module/world_module";
+import type { createMembershipStore } from "../../spacetime/sim/membership_sync";
+import type { createWorldModule, RoomState } from "../../spacetime/sim/world_module";
 
 type WorldModule = ReturnType<typeof createWorldModule>;
 type MembershipStore = ReturnType<typeof createMembershipStore>;

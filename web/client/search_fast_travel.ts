@@ -1,5 +1,5 @@
-import type { createAdminConfigStore } from "../../spacetime/module/admin_config";
-import type { createMembershipStore } from "../../spacetime/module/membership_sync";
+import type { createAdminConfigStore } from "../../spacetime/sim/admin_config";
+import type { createMembershipStore } from "../../spacetime/sim/membership_sync";
 
 type AdminConfigStore = ReturnType<typeof createAdminConfigStore>;
 type MembershipStore = ReturnType<typeof createMembershipStore>;

@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import {
   createMembershipStore,
   type MembershipSnapshot,
-} from "../spacetime/module/membership_sync";
+} from "../spacetime/sim/membership_sync";
 
 test("T4 sync stores team/channel membership from snapshot", () => {
   const store = createMembershipStore();

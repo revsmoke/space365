@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { createWorldModule, type ChannelMessageEvent } from "../spacetime/module/world_module";
+import { createWorldModule, type ChannelMessageEvent } from "../spacetime/sim/world_module";
 import {
   replayChannelEvents,
   createDeltaCursorStore,

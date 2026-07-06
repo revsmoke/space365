@@ -14,3 +14,4 @@ node_modules/
 ingest/.stdb-token
 .stdb-token
 web/client-app/node_modules/
+spacetime/module/dist/

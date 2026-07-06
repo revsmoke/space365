@@ -545,7 +545,9 @@ export const tickAgg = spacetimedb.reducer(
     for (const ch of [...ctx.db.channel.iter()]) {
       if (!ch.is_enabled) continue;
       const actors = new Set<string>();
-      for (const ev of [...ctx.db.activityEvent.by_channel_time.filter(ch.channel_id)]) {
+      // Prefix scan on multi-column index requires array form at runtime (2.6.1
+      // types say scalar, runtime says array — runtime wins).
+      for (const ev of [...ctx.db.activityEvent.by_channel_time.filter([ch.channel_id] as any)]) {
         if (ev.occurred_at >= fiveMinAgo && ev.actor_user_id) actors.add(ev.actor_user_id);
       }
       if (actors.size === 0) continue;
@@ -765,7 +767,7 @@ export const syncTeamMembership = spacetimedb.reducer(
     requireRole(ctx, ['service', 'admin']);
     if (!ingestAllowed(ctx)) return;
     const now = nowMicros(ctx);
-    for (const row of [...ctx.db.teamMember.by_team_user.filter(teamId)]) {
+    for (const row of [...ctx.db.teamMember.by_team_user.filter([teamId] as any)]) {
       ctx.db.teamMember.id.delete(row.id);
     }
     for (let i = 0; i < userIds.length; i++) {
@@ -780,7 +782,7 @@ export const syncChannelMembership = spacetimedb.reducer(
     requireRole(ctx, ['service', 'admin']);
     if (!ingestAllowed(ctx)) return;
     const now = nowMicros(ctx);
-    for (const row of [...ctx.db.channelMember.by_channel_user.filter(channelId)]) {
+    for (const row of [...ctx.db.channelMember.by_channel_user.filter([channelId] as any)]) {
       ctx.db.channelMember.id.delete(row.id);
     }
     for (let i = 0; i < userIds.length; i++) {
@@ -1181,7 +1183,7 @@ export const roomActivity = spacetimedb.anonymousView(
     const out: any[] = [];
     for (const ch of [...ctx.db.channel.iter()]) {
       if (!ch.is_enabled || ch.visibility === 'private') continue;
-      for (const agg of [...ctx.db.channelActivityAgg.by_channel_window.filter(ch.channel_id)]) {
+      for (const agg of [...ctx.db.channelActivityAgg.by_channel_window.filter([ch.channel_id] as any)]) {
         out.push({
           channel_id: agg.channel_id,
           window_key: agg.window_key,

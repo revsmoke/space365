@@ -1,9 +1,14 @@
 /**
- * Space365 Graph ingestion service entrypoint (P1.6 + P0.1).
+ * Space365 Graph ingestion service entrypoint (P1.6 + P0.1 + P4).
  *
- *   bun run ingest/src/main.ts --validate    # cert-assertion auth check (real call)
- *   bun run ingest/src/main.ts --sync-once   # full sync + users delta, then exit
- *   bun run ingest/src/main.ts --serve       # webhook + subscriptions + presence
+ *   bun run ingest/src/main.ts --validate        # cert-assertion auth check (real call)
+ *   bun run ingest/src/main.ts --sync-once       # full sync + users delta, then exit
+ *   bun run ingest/src/main.ts --serve           # webhook + subscriptions + presence
+ *   bun run ingest/src/main.ts --surfaces-once   # one pass over the P4 surfaces, then exit
+ *   bun run ingest/src/main.ts --surfaces-serve  # poll the P4 surfaces on their intervals
+ *
+ * Surface modifiers: --dry-run (fetch + map, no reducer writes) and
+ * --only=meetings,bookings,calls,planner,audit (subset).
  */
 import { decodeJwtPayload } from "./graph_credentials";
 import { GraphTokenProvider, loadCertCredentialConfig } from "./graph_auth";
@@ -15,18 +20,32 @@ import { startWebhookServer } from "./webhook_server";
 import { SubscriptionManager } from "./subscription_manager";
 import { PresencePoller } from "./presence_poller";
 import { stdbSql } from "./stdb_sql";
+import { surfaceReducers } from "./surfaces/common";
+import { MEETINGS_INTERVAL_MS, runMeetingsOnce } from "./surfaces/meetings";
+import { BOOKINGS_INTERVAL_MS, runBookingsOnce } from "./surfaces/bookings";
+import { CALL_STATS_INTERVAL_MS, runCallStatsOnce } from "./surfaces/call_stats";
+import { PLANNER_INTERVAL_MS, runPlannerQuestsOnce } from "./surfaces/planner_quests";
+import { AUDIT_INTERVAL_MS, runAuditTickerOnce } from "./surfaces/audit_ticker";
 
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
 const mode = args.has("--serve")
   ? "serve"
   : args.has("--sync-once")
     ? "sync-once"
-    : args.has("--validate")
-      ? "validate"
-      : null;
+    : args.has("--surfaces-once")
+      ? "surfaces-once"
+      : args.has("--surfaces-serve")
+        ? "surfaces-serve"
+        : args.has("--validate")
+          ? "validate"
+          : null;
 
 if (!mode) {
-  console.error("Usage: bun run ingest/src/main.ts --validate | --sync-once | --serve");
+  console.error(
+    "Usage: bun run ingest/src/main.ts --validate | --sync-once | --serve | " +
+      "--surfaces-once | --surfaces-serve [--dry-run] [--only=meetings,bookings,calls,planner,audit]",
+  );
   process.exit(2);
 }
 
@@ -64,6 +83,78 @@ if (mode === "sync-once") {
   process.exit(0);
 }
 
+// --- surfaces (P4) -----------------------------------------------------------
+if (mode === "surfaces-once" || mode === "surfaces-serve") {
+  const dryRun = args.has("--dry-run");
+  const onlyArg = argv.find((arg) => arg.startsWith("--only="));
+  const only = onlyArg
+    ? new Set(onlyArg.slice("--only=".length).split(",").filter(Boolean))
+    : null;
+
+  const reducers = surfaceReducers(writer);
+  const surfaces = [
+    {
+      name: "meetings",
+      intervalMs: MEETINGS_INTERVAL_MS,
+      run: () => runMeetingsOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "bookings",
+      intervalMs: BOOKINGS_INTERVAL_MS,
+      run: () => runBookingsOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "calls",
+      intervalMs: CALL_STATS_INTERVAL_MS,
+      run: () => runCallStatsOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "planner",
+      intervalMs: PLANNER_INTERVAL_MS,
+      run: () => runPlannerQuestsOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "audit",
+      intervalMs: AUDIT_INTERVAL_MS,
+      run: () => runAuditTickerOnce(graph, reducers, { dryRun }),
+    },
+  ].filter((surface) => !only || only.has(surface.name));
+
+  // Initial pass for every selected surface; one failing surface must not
+  // block the others.
+  let failures = 0;
+  for (const surface of surfaces) {
+    try {
+      await surface.run();
+    } catch (error) {
+      failures++;
+      console.log(`surface.${surface.name}.error ${(error as Error).message}`);
+    }
+  }
+
+  if (mode === "surfaces-once") {
+    console.log(`surfaces.once done count=${surfaces.length} failures=${failures}`);
+    stdb.disconnect();
+    process.exit(failures === surfaces.length && surfaces.length > 0 ? 1 : 0);
+  }
+
+  const timers = surfaces.map((surface) =>
+    setInterval(() => {
+      surface.run().catch((error) =>
+        console.log(`surface.${surface.name}.loop_error ${(error as Error).message}`),
+      );
+    }, surface.intervalMs),
+  );
+  console.log(
+    `surfaces.serve ready count=${surfaces.length} ` +
+      surfaces.map((s) => `${s.name}=${s.intervalMs / 1000}s`).join(" "),
+  );
+  process.on("SIGINT", () => {
+    for (const timer of timers) clearInterval(timer);
+    stdb.disconnect();
+    process.exit(0);
+  });
+} else {
 // --- serve -----------------------------------------------------------------
 const port = Number(process.env.PORT ?? "8787");
 const clientState = process.env.GRAPH_CLIENT_STATE ?? "space365-dev-client-state";
@@ -114,3 +205,4 @@ process.on("SIGINT", () => {
   stdb.disconnect();
   process.exit(0);
 });
+} // end --serve

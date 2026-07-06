@@ -6,11 +6,24 @@ import { ActivityFeed } from './ActivityFeed';
 import { RoomPanel } from './RoomPanel';
 import { PrivacyModal } from './PrivacyModal';
 import { QuestPanel } from './QuestPanel';
+import { AdminConsole } from './AdminConsole';
+
+/** Minimal hash routing: '#/admin' → admin console, anything else → world UI. */
+function useHashRoute(): string {
+  const [route, setRoute] = useState(() => window.location.hash);
+  useEffect(() => {
+    const onChange = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  return route;
+}
 
 export function App({ world }: { world: WorldApp }) {
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
+  const route = useHashRoute();
 
   useEffect(() => {
     world.onRoomSelected = (roomId, _via) => setSelectedRoom(roomId);
@@ -18,6 +31,10 @@ export function App({ world }: { world: WorldApp }) {
       world.onRoomSelected = null;
     };
   }, [world]);
+
+  if (route.startsWith('#/admin') && !KIOSK) {
+    return <AdminConsole />;
+  }
 
   return (
     <>

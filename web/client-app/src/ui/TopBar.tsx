@@ -15,6 +15,7 @@ export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivac
   useStore('status');
   useStore('zones');
   useStore('rooms');
+  useStore('adminConfig');
   const [query, setQuery] = useState('');
 
   const hits = useMemo<SearchHit[]>(() => {
@@ -69,6 +70,11 @@ export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivac
         </div>
       )}
       <div className="topbar-right">
+        {!KIOSK && stdb.isAdmin && (
+          <a className="ghost-btn" href="#/admin">
+            Admin
+          </a>
+        )}
         {!KIOSK && (
           <button className="ghost-btn" onClick={onOpenPrivacy}>
             Privacy & data

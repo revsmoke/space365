@@ -21,6 +21,12 @@ import MyQuestsRow from '@bindings/my_quests_table';
 import MeetingPortalsRow from '@bindings/meeting_portals_table';
 import EvtRoomBurstRow from '@bindings/evt_room_burst_table';
 import StaffPresenceRow from '@bindings/staff_presence_table';
+import AdminConfigRow from '@bindings/admin_config_view_table';
+import AdminHealthRow from '@bindings/admin_health_table';
+import AdminAuditRow from '@bindings/admin_audit_table';
+import AdminAuditStatsRow from '@bindings/admin_audit_stats_table';
+import AdminTeamsRow from '@bindings/admin_teams_table';
+import AdminChannelsRow from '@bindings/admin_channels_table';
 
 import { STDB_URI, STDB_DB, TOKEN_STORAGE_KEY } from './config';
 
@@ -36,6 +42,12 @@ export type MyQuest = Infer<typeof MyQuestsRow>;
 export type MeetingPortal = Infer<typeof MeetingPortalsRow>;
 export type RoomBurst = Infer<typeof EvtRoomBurstRow>;
 export type StaffPresence = Infer<typeof StaffPresenceRow>;
+export type AdminConfig = Infer<typeof AdminConfigRow>;
+export type AdminHealth = Infer<typeof AdminHealthRow>;
+export type AdminAudit = Infer<typeof AdminAuditRow>;
+export type AdminAuditStat = Infer<typeof AdminAuditStatsRow>;
+export type AdminTeam = Infer<typeof AdminTeamsRow>;
+export type AdminChannel = Infer<typeof AdminChannelsRow>;
 
 export type ConnStatus = 'connecting' | 'live' | 'stale';
 
@@ -52,7 +64,11 @@ export type StoreEvent =
   | 'quests'
   | 'portals'
   | 'staff'
-  | 'burst';
+  | 'burst'
+  | 'adminConfig'
+  | 'adminHealth'
+  | 'adminAudit'
+  | 'adminScope';
 
 type Listener = (payload?: unknown) => void;
 
@@ -95,6 +111,23 @@ class Stdb {
   portals: MeetingPortal[] = [];
   /** user_id -> ambient staff presence (NPC avatars) */
   staff = new Map<string, StaffPresence>();
+
+  // Admin console data (admin-gated views; all empty for non-admins).
+  /** config key -> row */
+  adminConfig = new Map<string, AdminConfig>();
+  /** graph_subscription_id -> row */
+  adminHealth = new Map<string, AdminHealth>();
+  /** newest-first audit entries */
+  adminAudit: AdminAudit[] = [];
+  adminAuditStats: AdminAuditStat[] = [];
+  /** team_id -> full team row (incl. disabled) */
+  adminTeams = new Map<string, AdminTeam>();
+  /** channel_id -> full channel row (incl. disabled + private) */
+  adminChannels = new Map<string, AdminChannel>();
+  /** true once the admin subscription applied AND returned config rows */
+  get isAdmin(): boolean {
+    return this.adminConfig.size > 0;
+  }
 
   /** rolling feed of recent activity windows + bursts, newest first */
   feed: FeedItem[] = [];
@@ -176,6 +209,20 @@ class Stdb {
           .onApplied(() => this.#emit('activity'))
           .onError(ctx => console.warn('[stdb] room_activity subscription error', ctx))
           .subscribe([tables.roomActivity]);
+        // Admin views (all return [] for non-admin identities). Isolated so an
+        // authorization change or view error never affects the world subscription.
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => this.#snapshotAdmin(conn))
+          .onError(ctx => console.warn('[stdb] admin subscription error', ctx))
+          .subscribe([
+            tables.adminConfigView,
+            tables.adminHealth,
+            tables.adminAudit,
+            tables.adminAuditStats,
+            tables.adminTeams,
+            tables.adminChannels,
+          ]);
       })
       .onConnectError((_ctx, err) => {
         console.error('[stdb] connect error', err);
@@ -242,6 +289,27 @@ class Stdb {
   #putRoom(r: WorldRoom): void {
     this.rooms.set(r.roomId, r);
     this.roomByChannel.set(r.channelId, r.roomId);
+  }
+
+  /**
+   * Rebuild the admin maps from the client cache. Admin view rows arrive as
+   * whole-set inserts/deletes, so re-iterating on change is simple and correct
+   * at admin-console scale.
+   */
+  #snapshotAdmin(conn: DbConnection): void {
+    this.adminConfig.clear();
+    for (const c of conn.db.adminConfigView.iter()) this.adminConfig.set(c.key, c);
+    this.adminHealth.clear();
+    for (const h of conn.db.adminHealth.iter()) this.adminHealth.set(h.graphSubscriptionId, h);
+    this.adminAudit = [...conn.db.adminAudit.iter()].sort((a, b) => (b.id < a.id ? -1 : b.id > a.id ? 1 : 0));
+    this.adminAuditStats = [...conn.db.adminAuditStats.iter()];
+    this.adminTeams.clear();
+    for (const t of conn.db.adminTeams.iter()) this.adminTeams.set(t.teamId, t);
+    this.adminChannels.clear();
+    for (const ch of conn.db.adminChannels.iter()) this.adminChannels.set(ch.channelId, ch);
+    for (const e of ['adminConfig', 'adminHealth', 'adminAudit', 'adminScope'] as StoreEvent[]) {
+      this.#emit(e);
+    }
   }
 
   #registerCallbacks(conn: DbConnection): void {
@@ -363,6 +431,53 @@ class Stdb {
       this.#emit('activity');
       this.#emit('burst', row);
     });
+
+    // Admin views: re-snapshot the affected slice on any change.
+    const adminSync = (events: StoreEvent[]) => () => {
+      this.#snapshotAdminSlices(conn, events);
+    };
+    // These views have primary keys, so changes can arrive as updates too.
+    for (const t of [conn.db.adminConfigView]) {
+      t.onInsert(adminSync(['adminConfig']));
+      t.onUpdate?.(adminSync(['adminConfig']));
+      t.onDelete(adminSync(['adminConfig']));
+    }
+    for (const t of [conn.db.adminHealth]) {
+      t.onInsert(adminSync(['adminHealth']));
+      t.onUpdate?.(adminSync(['adminHealth']));
+      t.onDelete(adminSync(['adminHealth']));
+    }
+    for (const t of [conn.db.adminAudit, conn.db.adminAuditStats]) {
+      t.onInsert(adminSync(['adminAudit']));
+      t.onUpdate?.(adminSync(['adminAudit']));
+      t.onDelete(adminSync(['adminAudit']));
+    }
+    for (const t of [conn.db.adminTeams, conn.db.adminChannels]) {
+      t.onInsert(adminSync(['adminScope']));
+      t.onUpdate?.(adminSync(['adminScope']));
+      t.onDelete(adminSync(['adminScope']));
+    }
+  }
+
+  #snapshotAdminSlices(conn: DbConnection, events: StoreEvent[]): void {
+    for (const e of events) {
+      if (e === 'adminConfig') {
+        this.adminConfig.clear();
+        for (const c of conn.db.adminConfigView.iter()) this.adminConfig.set(c.key, c);
+      } else if (e === 'adminHealth') {
+        this.adminHealth.clear();
+        for (const h of conn.db.adminHealth.iter()) this.adminHealth.set(h.graphSubscriptionId, h);
+      } else if (e === 'adminAudit') {
+        this.adminAudit = [...conn.db.adminAudit.iter()].sort((a, b) => (b.id < a.id ? -1 : b.id > a.id ? 1 : 0));
+        this.adminAuditStats = [...conn.db.adminAuditStats.iter()];
+      } else if (e === 'adminScope') {
+        this.adminTeams.clear();
+        for (const t of conn.db.adminTeams.iter()) this.adminTeams.set(t.teamId, t);
+        this.adminChannels.clear();
+        for (const ch of conn.db.adminChannels.iter()) this.adminChannels.set(ch.channelId, ch);
+      }
+      this.#emit(e);
+    }
   }
 
   #rebuildFeed(): void {
@@ -450,6 +565,28 @@ class Stdb {
     this.conn?.reducers
       .dismissQuest({ questId })
       .catch(err => console.warn('[stdb] dismiss_quest failed', err));
+  }
+
+  /** Enable/disable a team or channel in the world. Resolves to an error message or null. */
+  async adminSetScope(kind: 'team' | 'channel', id: string, enabled: boolean): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.adminSetScope({ kind, id, enabled });
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /** Update a config key. Resolves to an error message or null. */
+  async adminUpdateConfig(key: string, value: string): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.adminUpdateConfig({ key, value });
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
   }
 
   // ---- derived helpers --------------------------------------------------

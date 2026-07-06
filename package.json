@@ -5,7 +5,7 @@
   "description": "Space365 monorepo scaffold",
   "scripts": {
     "test": "bun test",
-    "test:parity": "bun run tests/parity/publish.ts && bun test tests/parity",
+    "test:parity": "bun run parity/publish.ts && bun test parity",
     "graph:validate-credentials": "bun run scripts/validate-graph-credentials.ts"
   },
   "devDependencies": {

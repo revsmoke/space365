@@ -44,8 +44,8 @@ jobs:
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:3000/v1/ping && break || sleep 1
           done
-          if [ -d tests/parity ]; then
-            bun test tests/parity --timeout 120000
+          if [ -d parity ]; then
+            bun run test:parity
           else
             spacetime publish space365ci --server local --yes --module-path spacetime/module
           fi

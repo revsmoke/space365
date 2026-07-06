@@ -8,7 +8,7 @@
 import { join } from "node:path";
 import { clearTokenCache, DB_NAME } from "./harness.ts";
 
-const repoRoot = join(import.meta.dir, "..", "..");
+const repoRoot = join(import.meta.dir, "..");
 const modulePath = join(repoRoot, "spacetime", "module");
 
 console.log(`[parity] publishing ${DB_NAME} from ${modulePath} ...`);

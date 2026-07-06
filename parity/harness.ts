@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import type { Identity } from "spacetimedb";
-import { DbConnection, tables } from "../../shared/bindings/index.ts";
+import { DbConnection, tables } from "../shared/bindings/index.ts";
 
 export { tables };
 export type { DbConnection };
@@ -20,7 +20,7 @@ export const DB_NAME = "space365test";
 /**
  * Cached tokens for the shared admin/service identities. The whole suite shares
  * one admin and one service identity (bootstrap only works once per fresh db);
- * tests/parity/publish.ts wipes this file whenever the db is re-published.
+ * parity/publish.ts wipes this file whenever the db is re-published.
  */
 export const TOKEN_CACHE_FILE = join(tmpdir(), "space365test-parity-tokens.json");
 

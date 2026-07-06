@@ -2,11 +2,13 @@ import { existsSync } from "node:fs";
 import { test, expect } from "bun:test";
 
 const requiredDirectories = [
-  "spacetime/sim",
+  "spacetime/module/src",
   "ingest/src",
-  "web/client",
-  "web/admin",
+  "ingest/src/surfaces",
+  "web/client-app/src",
   "shared/types",
+  "shared/bindings",
+  "parity",
 ];
 
 test("T0 scaffold directories exist", () => {

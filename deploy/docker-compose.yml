@@ -1,0 +1,43 @@
+## Space365 production stack (PLAN P6.3, decision D7).
+## Host requirements: Docker, the wildcard TLS cert, and DNS for
+## space365.tpgarchitecture.com pointing here.
+services:
+  spacetimedb:
+    image: clockworklabs/spacetime:latest
+    command: start --listen-addr 0.0.0.0:3000
+    restart: unless-stopped
+    volumes:
+      - stdb-data:/home/spacetime/.local/share/spacetime
+    ports:
+      - '127.0.0.1:3000:3000' # only Nginx reaches it
+    # RAM is the capacity dimension: whole dataset lives in memory.
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+
+  ingest:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ingest
+    restart: unless-stopped
+    environment:
+      - STDB_URI=ws://spacetimedb:3000
+      - STDB_DB=space365
+      - PORT=8787
+      - GRAPH_WEBHOOK_BASE_URL=https://space365.tpgarchitecture.com
+      - GRAPH_WEBHOOK_PATH=/api/graph/webhook
+      # GRAPH_SUBSCRIPTIONS_DRY_RUN unset in prod: real subscriptions.
+    env_file:
+      - ../.env # tenant/client ids + GRAPH_CLIENT_STATE (never committed)
+    volumes:
+      - ../ssl_certs:/app/ssl_certs:ro # cert-assertion Graph auth
+      - ingest-state:/app/ingest/state
+    ports:
+      - '127.0.0.1:8787:8787'
+    depends_on:
+      - spacetimedb
+
+volumes:
+  stdb-data:
+  ingest-state:

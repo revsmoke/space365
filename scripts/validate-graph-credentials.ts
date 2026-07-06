@@ -1,69 +1,65 @@
-import { existsSync, readFileSync } from "node:fs";
+/**
+ * Validate Graph app credentials using the CERTIFICATE client assertion flow
+ * (the client secret is retired). Requests an app-only token and performs a
+ * real read (GET /v1.0/teams?$top=1).
+ */
 import {
-  buildClientCredentialsTokenRequest,
-  decodeJwtPayload,
-  loadGraphCredentialConfig,
-  parseDotEnv,
-} from "../ingest/src/graph_credentials";
+  GraphTokenProvider,
+  buildAssertionParts,
+  loadCertCredentialConfig,
+} from "../ingest/src/graph_auth";
+import { decodeJwtPayload } from "../ingest/src/graph_credentials";
 
-const envText = readFileSync(".env", "utf8");
-const appInfoText = existsSync("APPINFO.md") ? readFileSync("APPINFO.md", "utf8") : undefined;
-const env = parseDotEnv(envText);
-const config = loadGraphCredentialConfig({ envText, appInfoText });
+const config = loadCertCredentialConfig();
 
 console.log("config.clientId.present=true");
 console.log("config.tenantId.present=true");
-console.log(`config.redirectUri.count=${config.redirectUris.length}`);
 console.log(`config.scope=${config.scope}`);
+console.log("config.auth=certificate_assertion");
 
-const copiedToken = env.GRAPH_API_ACCESS_TOKEN
-  ? decodeJwtPayload(env.GRAPH_API_ACCESS_TOKEN)
-  : null;
-if (copiedToken) {
-  console.log(`copiedToken.aud=${copiedToken.aud ?? "missing"}`);
-  console.log(`copiedToken.appid=${copiedToken.appid ?? copiedToken.azp ?? "missing"}`);
-  console.log(`copiedToken.expired=${isExpired(copiedToken.exp)}`);
-}
+const assertionParts = buildAssertionParts(config);
+console.log(`assertion.header.alg=${assertionParts.header.alg}`);
+console.log(`assertion.header.x5t.present=${assertionParts.header.x5t.length > 0}`);
+console.log(
+  `assertion.exp.minutes=${Math.round((assertionParts.claims.exp - assertionParts.claims.nbf) / 60)}`,
+);
 
-const tokenRequest = buildClientCredentialsTokenRequest(config);
-const tokenResponse = await fetch(tokenRequest.url, {
-  method: "POST",
-  headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  body: tokenRequest.body,
-});
-const tokenPayload = await tokenResponse.json();
-
-console.log(`clientCredentials.status=${tokenResponse.status}`);
-if (!tokenResponse.ok) {
-  console.log(`clientCredentials.error=${String(tokenPayload.error ?? "unknown")}`);
+const provider = new GraphTokenProvider(config);
+let accessToken: string;
+try {
+  accessToken = await provider.getToken();
+} catch (error) {
+  console.log(`clientCredentials.status=failed`);
+  console.log(`clientCredentials.error=${(error as Error).message}`);
   process.exit(1);
 }
+console.log("clientCredentials.status=200");
 
-const appToken = decodeJwtPayload(tokenPayload.access_token);
+const appToken = decodeJwtPayload(accessToken);
 console.log(`appToken.aud=${appToken?.aud ?? "missing"}`);
 console.log(`appToken.appid=${appToken?.appid ?? appToken?.azp ?? "missing"}`);
 console.log(`appToken.expired=${isExpired(appToken?.exp)}`);
-console.log(`appToken.role.count=${Array.isArray(appToken?.roles) ? appToken.roles.length : 0}`);
+console.log(
+  `appToken.role.count=${Array.isArray(appToken?.roles) ? appToken.roles.length : 0}`,
+);
 
-const meResponse = await fetch("https://graph.microsoft.com/v1.0/teams?$top=1", {
-  headers: {
-    Authorization: `Bearer ${tokenPayload.access_token}`,
-    Accept: "application/json",
-  },
+const teamsResponse = await fetch("https://graph.microsoft.com/v1.0/teams?$top=1", {
+  headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
 });
-console.log(`graph.teams.status=${meResponse.status}`);
+console.log(`graph.teams.status=${teamsResponse.status}`);
 
-if (!meResponse.ok) {
-  const body = await meResponse.json().catch(() => ({}));
-  const error = isRecord(body) && isRecord(body.error) ? body.error.code : "unknown";
+if (!teamsResponse.ok) {
+  const body = (await teamsResponse.json().catch(() => ({}))) as Record<string, unknown>;
+  const error =
+    typeof body.error === "object" && body.error !== null
+      ? (body.error as Record<string, unknown>).code
+      : "unknown";
   console.log(`graph.teams.error=${String(error)}`);
   process.exit(1);
 }
 
+console.log("token OK");
+
 function isExpired(exp: unknown): boolean {
   return typeof exp === "number" && exp < Math.floor(Date.now() / 1000);
-}
-
-function isRecord(input: unknown): input is Record<string, unknown> {
-  return typeof input === "object" && input !== null && !Array.isArray(input);
 }

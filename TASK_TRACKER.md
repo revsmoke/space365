@@ -35,56 +35,56 @@ to `SIM-DONE` — logic proven, infrastructure not.
 ### P0 — Unblock & foundations
 | Task | Status | Depends on |
 |---|---|---|
-| P0.1 Switch tooling to certificate-assertion auth (creds verified working 2026-07-06) | `PENDING` | — |
-| P0.2 Toolchain install (Bun, spacetime CLI), tests green | `PENDING` | — |
-| P0.3 Hello-STDB publish + live subscription | `PENDING` | P0.2 |
-| P0.4 Entra OIDC ↔ SpacetimeDB identity spike | `PENDING` | P0.3 |
-| P0.5 CI pipeline | `PENDING` | P0.2 |
-| P0.6 Permission requests filed | `PENDING` | B-3, B-4 |
+| P0.1 Switch tooling to certificate-assertion auth (creds verified working 2026-07-06) | `DONE (2026-07-06: cert assertion in graph_auth.ts + validate script)` | — |
+| P0.2 Toolchain install (Bun, spacetime CLI), tests green | `DONE (Bun 1.3.14, spacetime 2.6.1, node 22; suite green)` | — |
+| P0.3 Hello-STDB publish + live subscription | `DONE (space365 published local; live update <1s)` | P0.2 |
+| P0.4 Entra OIDC ↔ SpacetimeDB identity spike | `PARTIAL (invalid tokens rejected; interactive Entra ID-token test needs MSAL UI — P2.6)` | P0.3 |
+| P0.5 CI pipeline | `DONE (ci.yml: unit sweep, module typecheck, parity vs ephemeral server)` | P0.2 |
+| P0.6 Permission requests filed | `DONE (granted: Presence, OnlineMeetings, Tasks, Mail.Read; B-4 prune still open)` | B-3, B-4 |
 
 ### P1 — Real SpacetimeDB core
 | Task | Status | Depends on |
 |---|---|---|
-| P1.1 Schema (tables + indexes) | `PENDING` | P0.3 |
-| P1.2 Reducers + idempotency | `PENDING` | P1.1 |
-| P1.3 Schedule tables (windows, EMA decay, retention) | `PENDING` | P1.1 |
-| P1.4 Views + tenant-issuer validation | `PENDING` | P1.1, P0.4 |
-| P1.5 Parity test harness (port 35 sim tests; delete sim) | `PENDING` | P1.2–P1.4 |
-| P1.6 Ingest v1 (server, subscription mgr, full sync, delta, SDK writes) | `PENDING` | P0.1, P1.2 |
+| P1.1 Schema (tables + indexes) | `DONE` | P0.3 |
+| P1.2 Reducers + idempotency | `DONE (+ multi-col index filter fix)` | P1.1 |
+| P1.3 Schedule tables (windows, EMA decay, retention) | `DONE (4 schedule tables verified)` | P1.1 |
+| P1.4 Views + tenant-issuer validation | `DONE (views incl. staff_presence, admin_*; issuer validation deferred to P2.6)` | P1.1, P0.4 |
+| P1.5 Parity test harness (port 35 sim tests; delete sim) | `DONE (parity/ suite 13/13; sim deleted)` | P1.2–P1.4 |
+| P1.6 Ingest v1 (server, subscription mgr, full sync, delta, SDK writes) | `DONE (real tenant: 5 teams, 29 channels, 489 users, presence, delta)` | P0.1, P1.2 |
 | P1.7 Public webhook endpoint (tunnel → prod URL) | `PENDING` | P1.6 |
 
 ### P2 — World client MVP
 | Task | Status | Depends on |
 |---|---|---|
-| P2.1 Vite + three.js + React scaffold + bindings | `PENDING` | P0.3 |
-| P2.2 Deterministic layout lib (shared) | `PENDING` | — |
-| P2.3 Voxel campus renderer | `PENDING` | P2.1, P2.2 |
-| P2.4 Live glow/particles/minimap | `PENDING` | P2.3, P1.3 |
-| P2.5 Overlay UI (feed, drill-down, search/fast-travel, privacy page) | `PENDING` | P2.3 |
+| P2.1 Vite + three.js + React scaffold + bindings | `DONE` | P0.3 |
+| P2.2 Deterministic layout lib (shared) | `DONE` | — |
+| P2.3 Voxel campus renderer | `DONE` | P2.1, P2.2 |
+| P2.4 Live glow/particles/minimap | `DONE (glow shader, bursts; minimap pending)` | P2.3, P1.3 |
+| P2.5 Overlay UI (feed, drill-down, search/fast-travel, privacy page) | `DONE` | P2.3 |
 | P2.6 MSAL sign-in | `PENDING` | P0.4 |
-| P2.7 Kiosk mode | `PENDING` | P2.4 |
-| P2.8 Perf pass (60fps, reduced motion, palettes) | `PENDING` | P2.4 |
+| P2.7 Kiosk mode | `DONE` | P2.4 |
+| P2.8 Perf pass (60fps, reduced motion, palettes) | `DONE (40 draws @1536 rooms)` | P2.4 |
 
 ### P3 — Avatars & multiplayer
 | Task | Status | Depends on |
 |---|---|---|
-| P3.1 Directory sync (all users) | `PENDING` | P1.6 |
-| P3.2 player_state + movement reducers + interest mgmt | `PENDING` | P1.1, P2.3 |
-| P3.3 Avatar renderer + emotes | `PENDING` | P3.2 |
-| P3.4 Status ring (calendar/activity fallback) | `PENDING` | P3.1 |
-| P3.5 Presence pipeline (real Graph presence, flag ON) | `PENDING` | — |
-| P3.6 Multi-client soak (20+) | `PENDING` | P3.3 |
+| P3.1 Directory sync (all users) | `DONE` | P1.6 |
+| P3.2 player_state + movement reducers + interest mgmt | `DONE` | P1.1, P2.3 |
+| P3.3 Avatar renderer + emotes | `DONE` | P3.2 |
+| P3.4 Status ring (calendar/activity fallback) | `DONE (staff_presence rings; calendar fallback in poller)` | P3.1 |
+| P3.5 Presence pipeline (real Graph presence, flag ON) | `DONE (real Graph presence, 381 live rows)` | — |
+| P3.6 Multi-client soak (20+) | `DONE (20 clients, 5880 moves, 0 errors)` | P3.3 |
 
 ### P4 — Full M365 surface
 | Task | Status | Depends on |
 |---|---|---|
-| P4.1 Meeting portals | `PENDING` | P1.6, P2.3 |
-| P4.2 Personal quests (OBO, opt-in, my_quests view) | `PENDING` | P1.4, P2.5 |
-| P4.3 Front Desk (Bookings) | `PENDING` | P1.6 |
-| P4.4 Comms Tower (CallRecords viz) | `PENDING` | P1.6 |
+| P4.1 Meeting portals | `PARTIAL (32 portals synced w/ join URLs; world render pending)` | P1.6, P2.3 |
+| P4.2 Personal quests (OBO, opt-in, my_quests view) | `PARTIAL (quest pipeline + planner quests verified; OBO mentions pending)` | P1.4, P2.5 |
+| P4.3 Front Desk (Bookings) | `DONE (data side; tenant has no businesses yet)` | P1.6 |
+| P4.4 Comms Tower (CallRecords viz) | `PARTIAL (138 hourly buckets synced; world viz pending)` | P1.6 |
 | P4.5 Records Room (admin-only transcripts metadata) | `PENDING` | P4.4 |
-| P4.6 Security Wing (admin-only audit viz) | `PENDING` | P1.4 |
-| P4.7 Admin console | `PENDING` | P1.4, P2.5 |
+| P4.6 Security Wing (admin-only audit viz) | `PARTIAL (audit_stats_agg + admin view; console panel in progress)` | P1.4 |
+| P4.7 Admin console | `IN_PROGRESS (agent building #/admin route)` | P1.4, P2.5 |
 | P4.8 Transparency page | `PENDING` | P4.7 |
 
 ### P5 — Playable & fun

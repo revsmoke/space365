@@ -1240,6 +1240,55 @@ export const presencePublic = spacetimedb.anonymousView(
   }
 );
 
+const StaffPresenceView = t.object('StaffPresenceView', {
+  user_id: t.string(),
+  display_name: t.string(),
+  zone_id: t.u32(), // primary team zone (first enabled membership), 0 = plaza
+  availability: t.string(),
+  is_active_player: t.bool(),
+});
+
+/**
+ * Ambient staff: coarse presence per org user placed in their primary team
+ * zone. Powers NPC-style avatars so the office feels inhabited even before
+ * anyone plays. Policy-gated by allow_presence + safe_mode.
+ */
+export const staffPresence = spacetimedb.anonymousView(
+  { name: 'staff_presence', public: true },
+  t.array(StaffPresenceView),
+  (ctx) => {
+    const allowed = ctx.db.config.key.find('allow_presence');
+    const safe = ctx.db.config.key.find('safe_mode');
+    if ((allowed && allowed.value !== 'true') || (safe && safe.value === 'true')) return [];
+    const activePlayers = new Set<string>();
+    for (const p of [...ctx.db.playerState.iter()]) {
+      if (p.online && p.user_id) activePlayers.add(p.user_id);
+    }
+    const out: any[] = [];
+    for (const pr of [...ctx.db.presence.iter()]) {
+      if (pr.availability === 'Offline' || pr.availability === 'PresenceUnknown') continue;
+      const u = ctx.db.user.user_id.find(pr.user_id);
+      if (!u || !u.is_active) continue;
+      let zoneId = 0;
+      for (const tm of [...ctx.db.teamMember.user_id.filter(pr.user_id)]) {
+        const team = ctx.db.team.team_id.find(tm.team_id);
+        if (team && team.is_enabled) {
+          zoneId = team.zone_id;
+          break;
+        }
+      }
+      out.push({
+        user_id: pr.user_id,
+        display_name: u.display_name,
+        zone_id: zoneId,
+        availability: pr.availability,
+        is_active_player: activePlayers.has(pr.user_id),
+      });
+    }
+    return out;
+  }
+);
+
 /** Client-safe policy flags (never exposes raw config). Single row as 1-element array. */
 export const worldPolicy = spacetimedb.anonymousView(
   { name: 'world_policy', public: true },

@@ -5,6 +5,7 @@ import { KIOSK, SYNTHETIC } from '../config';
 import { ZoneLayer, type ZoneDatum } from './zones';
 import { RoomLayer, type RoomDatum } from './rooms';
 import { AvatarLayer } from './avatars';
+import { StaffLayer } from './staff';
 import { Player } from './player';
 import { DayNight } from './daynight';
 import { BurstLayer } from './bursts';
@@ -31,6 +32,8 @@ export class WorldApp {
   #zoneLayer: ZoneLayer;
   #roomLayer: RoomLayer;
   #avatarLayer: AvatarLayer;
+  #staffLayer: StaffLayer;
+  #staffLabelTimer = 0;
   #burstLayer: BurstLayer;
   #dayNight: DayNight;
   #player: Player;
@@ -72,6 +75,7 @@ export class WorldApp {
     this.#zoneLayer = new ZoneLayer(this.#scene);
     this.#roomLayer = new RoomLayer(this.#scene);
     this.#avatarLayer = new AvatarLayer(this.#scene);
+    this.#staffLayer = new StaffLayer(this.#scene);
     this.#burstLayer = new BurstLayer(this.#scene);
     this.#dayNight = new DayNight(this.#scene);
     this.#player = new Player(this.#scene, this.#camera, canvas);
@@ -165,6 +169,10 @@ export class WorldApp {
     stdb.on('players', () => this.#avatarLayer.sync(stdb.players, stdb.users, stdb.identityHex));
     stdb.on('users', () => this.#avatarLayer.sync(stdb.players, stdb.users, stdb.identityHex));
 
+    const applyStaff = () => this.#staffLayer.sync(stdb.staff);
+    stdb.on('staff', applyStaff);
+    applyStaff();
+
     const applyWorldState = () => {
       if (stdb.worldState) this.#dayNight.set(stdb.worldState.dayPhase, stdb.worldState.mood);
     };
@@ -206,6 +214,11 @@ export class WorldApp {
     this.#player.update(dt, elapsed);
     this.#roomLayer.update(dt, KIOSK ? this.#camera.position : this.#player.position);
     this.#avatarLayer.update(dt, elapsed);
+    this.#staffLabelTimer -= dt;
+    if (this.#staffLabelTimer <= 0) {
+      this.#staffLabelTimer = 0.5;
+      this.#staffLayer.updateLabels(this.#camera.position);
+    }
     this.#burstLayer.update(dt);
     this.#dayNight.update(dt, elapsed);
     this.#checkApproach(dt);

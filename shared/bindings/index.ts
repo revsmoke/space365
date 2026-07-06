@@ -78,6 +78,7 @@ import MyQuestsRow from "./my_quests_table";
 import PlayerStateRow from "./player_state_table";
 import PresencePublicRow from "./presence_public_table";
 import RoomActivityRow from "./room_activity_table";
+import StaffPresenceRow from "./staff_presence_table";
 import UserRow from "./user_table";
 import WorldPolicyRow from "./world_policy_table";
 import WorldRoomsRow from "./world_rooms_table";
@@ -258,6 +259,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, RoomActivityRow),
+  staffPresence: __table({
+    name: 'staff_presence',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, StaffPresenceRow),
   worldPolicy: __table({
     name: 'world_policy',
     indexes: [

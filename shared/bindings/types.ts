@@ -277,6 +277,18 @@ export const RoomView = __t.object("RoomView", {
 });
 export type RoomView = __Infer<typeof RoomView>;
 
+export const StaffPresence = __t.object("StaffPresence", {});
+export type StaffPresence = __Infer<typeof StaffPresence>;
+
+export const StaffPresenceView = __t.object("StaffPresenceView", {
+  userId: __t.string(),
+  displayName: __t.string(),
+  zoneId: __t.u32(),
+  availability: __t.string(),
+  isActivePlayer: __t.bool(),
+});
+export type StaffPresenceView = __Infer<typeof StaffPresenceView>;
+
 export const SubscriptionHealth = __t.object("SubscriptionHealth", {
   graphSubscriptionId: __t.string(),
   resource: __t.string(),

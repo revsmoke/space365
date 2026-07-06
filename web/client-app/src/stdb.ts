@@ -20,6 +20,7 @@ import PresencePublicRow from '@bindings/presence_public_table';
 import MyQuestsRow from '@bindings/my_quests_table';
 import MeetingPortalsRow from '@bindings/meeting_portals_table';
 import EvtRoomBurstRow from '@bindings/evt_room_burst_table';
+import StaffPresenceRow from '@bindings/staff_presence_table';
 
 import { STDB_URI, STDB_DB, TOKEN_STORAGE_KEY } from './config';
 
@@ -34,6 +35,7 @@ export type PresencePublic = Infer<typeof PresencePublicRow>;
 export type MyQuest = Infer<typeof MyQuestsRow>;
 export type MeetingPortal = Infer<typeof MeetingPortalsRow>;
 export type RoomBurst = Infer<typeof EvtRoomBurstRow>;
+export type StaffPresence = Infer<typeof StaffPresenceRow>;
 
 export type ConnStatus = 'connecting' | 'live' | 'stale';
 
@@ -49,6 +51,7 @@ export type StoreEvent =
   | 'presence'
   | 'quests'
   | 'portals'
+  | 'staff'
   | 'burst';
 
 type Listener = (payload?: unknown) => void;
@@ -90,6 +93,8 @@ class Stdb {
   presence = new Map<string, PresencePublic>();
   quests = new Map<string, MyQuest>();
   portals: MeetingPortal[] = [];
+  /** user_id -> ambient staff presence (NPC avatars) */
+  staff = new Map<string, StaffPresence>();
 
   /** rolling feed of recent activity windows + bursts, newest first */
   feed: FeedItem[] = [];
@@ -156,6 +161,7 @@ class Stdb {
             tables.myPrivateRooms,
             tables.worldPolicy,
             tables.presencePublic,
+            tables.staffPresence,
             tables.playerState,
             tables.user,
             tables.worldState,
@@ -219,13 +225,15 @@ class Stdb {
     for (const p of conn.db.worldPolicy.iter()) this.policy = p;
     this.presence.clear();
     for (const p of conn.db.presencePublic.iter()) this.presence.set(p.userId, p);
+    this.staff.clear();
+    for (const s of conn.db.staffPresence.iter()) this.staff.set(s.userId, s);
     this.quests.clear();
     for (const q of conn.db.myQuests?.iter?.() ?? []) this.quests.set(q.questId, q);
     this.portals = [...conn.db.meetingPortals.iter()];
     this.#rebuildFeed();
     for (const e of [
       'zones', 'rooms', 'activity', 'players', 'users',
-      'worldState', 'policy', 'presence', 'quests', 'portals',
+      'worldState', 'policy', 'presence', 'quests', 'portals', 'staff',
     ] as StoreEvent[]) {
       this.#emit(e);
     }
@@ -320,6 +328,15 @@ class Stdb {
     conn.db.presencePublic.onDelete((_ctx, row) => {
       this.presence.delete(row.userId);
       this.#emit('presence');
+    });
+
+    conn.db.staffPresence.onInsert((_ctx, row) => {
+      this.staff.set(row.userId, row);
+      this.#emit('staff');
+    });
+    conn.db.staffPresence.onDelete((_ctx, row) => {
+      this.staff.delete(row.userId);
+      this.#emit('staff');
     });
 
     conn.db.myQuests.onInsert((_ctx, row) => {

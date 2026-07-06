@@ -6,3 +6,8 @@ tokens/www.tpgarchitecture.com.pem
 tokens/www_tpgarchitecture_com.crt
 .DS_Store
 tokens
+ssl_cert/*
+ssl_certs/
+node_modules/
+*.png
+.env.local

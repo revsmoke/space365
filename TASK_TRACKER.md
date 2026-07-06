@@ -1,72 +1,114 @@
 # Space365 Live Task Tracker
 
-- Last updated: 2026-07-02 04:40 local
-- Source of truth for sequencing: `PLAN.md`
+- Last updated: 2026-07-06
+- Source of truth for sequencing: `PLAN.md` v1.0 (Master Plan)
 - Execution rule: no task starts before dependencies are `DONE`.
-- Verification rule: each task requires tests written first, passing tests, and an atomic commit.
+- Verification rule: tests written first, passing tests, atomic commit — every task.
 
 ## Status legend
-- `PENDING`: not started
-- `IN_PROGRESS`: active implementation
-- `BLOCKED`: waiting on dependency or external prerequisite
-- `DONE`: tests pass and atomic commit completed
+`PENDING` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 
-## External prerequisites
-- `P-1` Entra ID app registration and permissions
-- `P-2` Tenant admin consent for Tier A/B (Tier C/D as approved)
-- `P-3` Public HTTPS webhook endpoint reachable by Graph
-- `P-4` Teams app configuration (for T14 only)
+## Historical note (v0.2 ladder)
+The former T0–T13 tasks were completed 2026-02 as an **in-memory simulation** (audit 2026-07-06:
+no SpacetimeDB bindings, no UI, no HTTP server; see PLAN.md §0). They are preserved below as the
+blueprint they are, and their tests become the P1.5 parity suite. Statuses corrected from `DONE`
+to `SIM-DONE` — logic proven, infrastructure not.
 
-### External prerequisite evidence (local)
-- `P-1` verified for app-only Graph auth using `.env` secret + `APPINFO.md` app metadata.
-- `P-2` verified for app-only Teams read path: `GET /teams?$top=1` returned `200`.
-- `P-3` still pending: public webhook URL and Graph subscription validation are not yet verified.
+| Old task | Corrected status |
+|---|---|
+| T0 scaffold, T1 schema | `DONE` (real) |
+| T2 STDB smoke, T4 membership, T6 presence, T7 aggregates, T8 idempotency/delta, T9 client updates, T10 kiosk, T11 admin, T12 overlays, T13 search | `SIM-DONE` (port in P1/P2) |
+| T3 webhook validation | `SIM-DONE` (real public validation pending → P1.7) |
+| T5 encrypted payloads, T14 Teams tab SSO | `PENDING` (optional, unscheduled) |
 
-## Task board
-| Task | Status | Depends on | Blocks |
-|---|---|---|---|
-| `T0` Repo scaffold + Bun toolchain | `DONE` | None | T1..T14 |
-| `T1` Shared schema | `DONE` | T0 | T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14 |
-| `T2` STDB smoke | `DONE` | T0,T1 | T4,T6,T7,T8,T9,T10,T11,T12,T13,T14 |
-| `T3` Graph webhook validation | `DONE` | T0,T1,P-1,P-3 | T5,T6,T7,T8,T12 |
-| `T4` Membership sync | `DONE` | T2,P-1,P-2 | T6,T7,T9,T11,T12 |
-| `T5` Encrypted payload handling (opt) | `PENDING` | T3 | T7 |
-| `T6` Presence pipeline | `DONE` | T2,T3,T4 | T9 |
-| `T7` Message aggregates | `DONE` | T2,T3,T4,T5(opt) | T9,T10,T11,T12 |
-| `T8` Idempotency + delta reconcile | `DONE` | T2,T3,T7 | I3 |
-| `T9` Client live updates | `DONE` | T2,T4,T6,T7 | T10,T11,T12,T13,T14 |
-| `T10` Kiosk mode | `DONE` | T9,T7 | T11 |
-| `T11` Admin scope + privacy | `DONE` | T2,T7,T9 | Integration |
-| `T12` Personal overlays (Phase 2) | `DONE` | T3,T4,T7,T9 | Phase 2 integration |
-| `T13` Search + fast travel (Phase 2) | `DONE` | T9 | Phase 2 integration |
-| `T14` Teams tab SSO (optional) | `PENDING` | T9,P-4 | Optional release |
+## Day-0 blockers (external / Bryan)
+| ID | Item | Status |
+|---|---|---|
+| B-1 | Graph credentials — **DONE via certificate**: client-assertion auth with `ssl_certs/wildcard_tpgarchitecture.key` verified 2026-07-06 (token w/ 138 roles, `/teams` 200). Stale secret in `.env` to be removed in P0.1. | `DONE` |
+| B-2 | Unknown consented API identified: **TPGGraphAdmin** (this tenant's own app). Confirm intentional. | `DONE` (confirm) |
+| B-3 | Request `Presence.Read.All`, `OnlineMeetings.Read.All` (wave 2: Files/Sites/Tasks read) | `PENDING` |
+| B-4 | Prune over-granted write permissions (Application.ReadWrite.All, AppRoleAssignment.ReadWrite.All, Teamwork.Migrate.All, Chat.ReadWrite.All, TeamsAppInstallation.ReadWrite*) | `PENDING` |
+| B-5 | Confirm hosting: Maincloud pilot + self-host prod (PLAN D7) | `PENDING` |
+
+## Task board (PLAN.md v1.0 phases)
+
+### P0 — Unblock & foundations
+| Task | Status | Depends on |
+|---|---|---|
+| P0.1 Switch tooling to certificate-assertion auth (creds verified working 2026-07-06) | `PENDING` | — |
+| P0.2 Toolchain install (Bun, spacetime CLI), tests green | `PENDING` | — |
+| P0.3 Hello-STDB publish + live subscription | `PENDING` | P0.2 |
+| P0.4 Entra OIDC ↔ SpacetimeDB identity spike | `PENDING` | P0.3 |
+| P0.5 CI pipeline | `PENDING` | P0.2 |
+| P0.6 Permission requests filed | `PENDING` | B-3, B-4 |
+
+### P1 — Real SpacetimeDB core
+| Task | Status | Depends on |
+|---|---|---|
+| P1.1 Schema (tables + indexes) | `PENDING` | P0.3 |
+| P1.2 Reducers + idempotency | `PENDING` | P1.1 |
+| P1.3 Schedule tables (windows, EMA decay, retention) | `PENDING` | P1.1 |
+| P1.4 Views + tenant-issuer validation | `PENDING` | P1.1, P0.4 |
+| P1.5 Parity test harness (port 35 sim tests; delete sim) | `PENDING` | P1.2–P1.4 |
+| P1.6 Ingest v1 (server, subscription mgr, full sync, delta, SDK writes) | `PENDING` | P0.1, P1.2 |
+| P1.7 Public webhook endpoint (tunnel → prod URL) | `PENDING` | P1.6 |
+
+### P2 — World client MVP
+| Task | Status | Depends on |
+|---|---|---|
+| P2.1 Vite + three.js + React scaffold + bindings | `PENDING` | P0.3 |
+| P2.2 Deterministic layout lib (shared) | `PENDING` | — |
+| P2.3 Voxel campus renderer | `PENDING` | P2.1, P2.2 |
+| P2.4 Live glow/particles/minimap | `PENDING` | P2.3, P1.3 |
+| P2.5 Overlay UI (feed, drill-down, search/fast-travel, privacy page) | `PENDING` | P2.3 |
+| P2.6 MSAL sign-in | `PENDING` | P0.4 |
+| P2.7 Kiosk mode | `PENDING` | P2.4 |
+| P2.8 Perf pass (60fps, reduced motion, palettes) | `PENDING` | P2.4 |
+
+### P3 — Avatars & multiplayer
+| Task | Status | Depends on |
+|---|---|---|
+| P3.1 Directory sync (all users) | `PENDING` | P1.6 |
+| P3.2 player_state + movement reducers + interest mgmt | `PENDING` | P1.1, P2.3 |
+| P3.3 Avatar renderer + emotes | `PENDING` | P3.2 |
+| P3.4 Status ring (calendar/activity fallback) | `PENDING` | P3.1 |
+| P3.5 Presence pipeline (feature-flagged) | `BLOCKED` | B-3 |
+| P3.6 Multi-client soak (20+) | `PENDING` | P3.3 |
+
+### P4 — Full M365 surface
+| Task | Status | Depends on |
+|---|---|---|
+| P4.1 Meeting portals | `PENDING` | P1.6, P2.3 |
+| P4.2 Personal quests (OBO, opt-in, my_quests view) | `PENDING` | P1.4, P2.5 |
+| P4.3 Front Desk (Bookings) | `PENDING` | P1.6 |
+| P4.4 Comms Tower (CallRecords viz) | `PENDING` | P1.6 |
+| P4.5 Records Room (admin-only transcripts metadata) | `PENDING` | P4.4 |
+| P4.6 Security Wing (admin-only audit viz) | `PENDING` | P1.4 |
+| P4.7 Admin console | `PENDING` | P1.4, P2.5 |
+| P4.8 Transparency page | `PENDING` | P4.7 |
+
+### P5 — Playable & fun
+| Task | Status | Depends on |
+|---|---|---|
+| P5.1 Team achievements (+ optional TeamsActivity.Send) | `PENDING` | P3, P4 |
+| P5.2 Office decoration (voxel props) | `PENDING` | P3.2 |
+| P5.3 Ambient life (day/night, org-mood weather) | `PENDING` | P2.4 |
+| P5.4 Onboarding tour + dashboard mode | `PENDING` | P3, P4 |
+| P5.5 Ambient sound (default muted) | `PENDING` | P5.3 |
+
+### P6 — Hardening & ship
+| Task | Status | Depends on |
+|---|---|---|
+| P6.1 Load/SLO report | `PENDING` | P1–P4 |
+| P6.2 Chaos & recovery drills | `PENDING` | P6.1 |
+| P6.3 Prod deploy (Docker STDB + ingest + Nginx, spacetime lock) | `PENDING` | B-5, P6.1 |
+| P6.4 Backup + restore drill | `PENDING` | P6.3 |
+| P6.5 Observability + alerts | `PENDING` | P6.3 |
+| P6.6 Security/privacy sign-off (perm prune, cert auth, redaction, retention) | `PENDING` | B-4, P6.3 |
+| P6.7 Pilot rollout | `PENDING` | P6.3–P6.6 |
 
 ## Checkpoint log
-- 2026-02-05 19:54:56 local: created and pushed tag `checkpoint-2026-02-05-195456`
-- 2026-02-05 19:54:56 local: created and pushed branch `main-backup-2026-02-05-195456`
-- 2026-02-05 19:55 local: created feature branch `codex/t0-repo-scaffold`
-- 2026-02-05 local: completed `T1` with commit `2980d42`
-- 2026-02-05 local: completed `T2` with commit `df9aa48`
-- 2026-02-05 local: completed `T3` (local simulated validation path)
-- 2026-02-05 local: completed `T3` with commit `47646d9`
-- 2026-02-05 local: completed `T4` (fixture-driven local sync path)
-- 2026-02-05 local: completed `T4` with commit `c4603df`
-- 2026-02-05 local: completed `T6` with commit `9b9ec6d`
-- 2026-02-05 local: completed `T7` with commit `f05946e`
-- 2026-02-05 20:06:15 local: created and pushed tag `checkpoint-2026-02-05-200615`
-- 2026-02-05 20:06:15 local: created and pushed branch `main-backup-2026-02-05-200615`
-- 2026-02-05 local: completed `T8` (local replay + delta cursor path)
-- 2026-02-05 local: completed `T8` idempotency commit `563dae8`
-- 2026-02-05 local: completed `T8` delta reconciliation commit `2bad15a`
-- 2026-02-05 local: completed `T9` with commit `336413f`
-- 2026-02-05 local: completed `T10` with commit `201abb1`
-- 2026-02-05 local: completed `T11` with commit `39bfc5a`
-- 2026-02-05 local: completed `T13` with commit `0b294b9`
-- 2026-02-05 20:53:40 local: created and pushed tag `checkpoint-2026-02-05-205340`
-- 2026-02-05 20:53:40 local: created and pushed branch `main-backup-2026-02-05-205340`
-- 2026-02-06 16:02:10 local: created and pushed tag `checkpoint-2026-02-06-160210`
-- 2026-02-06 16:02:10 local: created and pushed branch `main-backup-2026-02-06-160210`
-- 2026-02-06 local: completed `T12` with commit `d8f6037`
-- 2026-07-02 04:35:28 local: created and pushed tag `checkpoint-2026-07-02-043528`
-- 2026-07-02 04:35:28 local: created and pushed branch `main-backup-2026-07-02-043528`
-- 2026-07-02 local: validated app-only Graph credentials and Teams read path.
+- (v0.2 history preserved in git: tags `checkpoint-2026-02-05-*` … `checkpoint-2026-07-02-043528`)
+- 2026-07-06: project taken over; codebase + platform audit completed; PLAN v1.0 written;
+  Graph client secret verified INVALID; permission inventory decoded to `docs/GRAPH_PERMISSIONS.md`;
+  SpacetimeDB v2.6.1 research captured in `docs/SPACETIMEDB/CAPABILITIES.md`.

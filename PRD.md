@@ -1,7 +1,7 @@
-# Space365 (“Minecraft meets Teams”) — Product Requirements Document (PRD)
+# Space365 (“Minecraft meets the Office”) — Product Requirements Document (PRD)
 
-- **Doc version:** 0.4 (draft)
-- **Date:** 2026-02-05
+- **Doc version:** 0.5
+- **Date:** 2026-07-06 (v0.4: 2026-02-05)
 - **Status:** Draft (foundational)
 - **Primary deliverable:** This PRD is the input to `SPEC.md`
 - **Owner:** TBD
@@ -9,6 +9,31 @@
 - **Target surfaces:** Browser web app (desktop-first); optional Teams tab; optional kiosk display
 
 > **Ethics & trust (non‑negotiable):** Space365 visualizes workplace collaboration signals. It must be **privacy-first**, **transparent**, and **configurable**. The default experience must avoid exposing message content and must not become a surveillance tool.
+
+## 0) v0.5 addendum — scope expansion and reality alignment (2026-07-06)
+
+This revision aligns the PRD with the July 2026 project takeover (see `PLAN.md` v1.0):
+
+1. **Scope expands from "Teams-first" to "the full permitted M365 surface."** Space365 is a
+   playable game world that is also a real GUI for every Microsoft 365 API the app registration
+   holds permission for. The decoded inventory (`docs/GRAPH_PERMISSIONS.md`) adds to the v0.4
+   scope: **Calendar** (meeting portals), **Bookings** (front desk), **Call records** (Comms
+   Tower; transcripts metadata admin-only), **Audit logs** (Security Wing, admin-only),
+   **Directory** (all-user avatars), **Teams activity notifications** (achievement back-prop).
+   Notably we do **not** yet hold Presence, Mail, Files/Sites, or Planner permissions —
+   Presence and OnlineMeetings are being requested (PLAN Day-0 #3); Mail stays out by privacy
+   choice; the world layout reserves lots for Files and Planner.
+2. **Playability is a first-class goal.** v0.4 described an ambient dashboard with game
+   aesthetics; v1.0 targets a genuinely playable MMO layer: walkable avatars replicated through
+   SpacetimeDB (positions, emotes), team-level achievements, voxel office decoration, ambient
+   world life. The "no individual scoring / not a surveillance tool" principles are unchanged
+   and remain non-negotiable.
+3. **SpacetimeDB is confirmed as the heart of the stack** — validated against v2.6.1
+   capabilities (TypeScript modules stable, views for access control, schedule tables for game
+   ticks, event tables for VFX signals; see `docs/SPACETIMEDB/CAPABILITIES.md`). Renderer
+   decision: **three.js** (browser-first), Babylon.js fallback, Unity WebGL as a later option.
+4. **Status correction:** the 2026-02 POC ladder was an in-memory simulation; real
+   SpacetimeDB integration, rendering, and Graph subscription lifecycle begin at PLAN v1.0 P0.
 
 ## 1) Executive summary
 

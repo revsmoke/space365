@@ -66,8 +66,10 @@ import UpsertUserReducer from "./upsert_user_reducer";
 import AchievementRow from "./achievement_table";
 import AdminAuditRow from "./admin_audit_table";
 import AdminAuditStatsRow from "./admin_audit_stats_table";
+import AdminChannelsRow from "./admin_channels_table";
 import AdminConfigViewRow from "./admin_config_view_table";
 import AdminHealthRow from "./admin_health_table";
+import AdminTeamsRow from "./admin_teams_table";
 import BookingsAppointmentRow from "./bookings_appointment_table";
 import CallStatsAggRow from "./call_stats_agg_table";
 import DecorationRow from "./decoration_table";
@@ -210,6 +212,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, AdminAuditStatsRow),
+  adminChannels: __table({
+    name: 'admin_channels',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, AdminChannelsRow),
   adminConfigView: __table({
     name: 'admin_config',
     indexes: [
@@ -224,6 +233,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, AdminHealthRow),
+  adminTeams: __table({
+    name: 'admin_teams',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, AdminTeamsRow),
   meetingPortals: __table({
     name: 'meeting_portals',
     indexes: [

@@ -1361,6 +1361,27 @@ export const adminConfigView = spacetimedb.view(
   }
 );
 
+/** Full org inventory for the admin scope panel — includes disabled and private. */
+export const adminTeams = spacetimedb.view(
+  { name: 'admin_teams', public: true },
+  t.array(team.rowType),
+  (ctx) => {
+    const grant = ctx.db.roleGrant.identity.find(ctx.sender);
+    if (!grant || grant.role !== 'admin') return [];
+    return [...ctx.db.team.iter()];
+  }
+);
+
+export const adminChannels = spacetimedb.view(
+  { name: 'admin_channels', public: true },
+  t.array(channel.rowType),
+  (ctx) => {
+    const grant = ctx.db.roleGrant.identity.find(ctx.sender);
+    if (!grant || grant.role !== 'admin') return [];
+    return [...ctx.db.channel.iter()];
+  }
+);
+
 /** Security Wing data — admin only. */
 export const adminAuditStats = spacetimedb.view(
   { name: 'admin_audit_stats', public: true },

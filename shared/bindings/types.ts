@@ -38,11 +38,17 @@ export type AdminAudit = __Infer<typeof AdminAudit>;
 export const AdminAuditStats = __t.object("AdminAuditStats", {});
 export type AdminAuditStats = __Infer<typeof AdminAuditStats>;
 
+export const AdminChannels = __t.object("AdminChannels", {});
+export type AdminChannels = __Infer<typeof AdminChannels>;
+
 export const AdminConfigView = __t.object("AdminConfigView", {});
 export type AdminConfigView = __Infer<typeof AdminConfigView>;
 
 export const AdminHealth = __t.object("AdminHealth", {});
 export type AdminHealth = __Infer<typeof AdminHealth>;
+
+export const AdminTeams = __t.object("AdminTeams", {});
+export type AdminTeams = __Infer<typeof AdminTeams>;
 
 export const AggView = __t.object("AggView", {
   channelId: __t.string(),

@@ -26,7 +26,7 @@ to `SIM-DONE` — logic proven, infrastructure not.
 |---|---|---|
 | B-1 | Graph credentials — **DONE via certificate**: client-assertion auth with `ssl_certs/wildcard_tpgarchitecture.key` verified 2026-07-06 (token w/ 138 roles, `/teams` 200). Stale secret in `.env` to be removed in P0.1. | `DONE` |
 | B-2 | Unknown consented API identified: **TPGGraphAdmin** (this tenant's own app). Confirm intentional. | `DONE` (confirm) |
-| B-3 | Request `Presence.Read.All`, `OnlineMeetings.Read.All` (wave 2: Files/Sites/Tasks read) | `PENDING` |
+| B-3 | Permissions granted 2026-07-06 (verified live, token now 153 roles): `Presence.Read.All` ✅, `OnlineMeetings.Read.All` ✅, plus `Tasks.Read.All` ✅ and `Mail.Read` ✅. Still missing: `Files.Read.All`/`Sites.Read.All`. Module flags `presence_feature`/`online_meetings_feature` flipped ON. | `DONE` (wave 2 partial) |
 | B-4 | Prune over-granted write permissions (Application.ReadWrite.All, AppRoleAssignment.ReadWrite.All, Teamwork.Migrate.All, Chat.ReadWrite.All, TeamsAppInstallation.ReadWrite*) | `PENDING` |
 | B-5 | Confirm hosting: Maincloud pilot + self-host prod (PLAN D7) | `PENDING` |
 
@@ -72,7 +72,7 @@ to `SIM-DONE` — logic proven, infrastructure not.
 | P3.2 player_state + movement reducers + interest mgmt | `PENDING` | P1.1, P2.3 |
 | P3.3 Avatar renderer + emotes | `PENDING` | P3.2 |
 | P3.4 Status ring (calendar/activity fallback) | `PENDING` | P3.1 |
-| P3.5 Presence pipeline (feature-flagged) | `BLOCKED` | B-3 |
+| P3.5 Presence pipeline (real Graph presence, flag ON) | `PENDING` | — |
 | P3.6 Multi-client soak (20+) | `PENDING` | P3.3 |
 
 ### P4 — Full M365 surface

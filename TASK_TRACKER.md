@@ -79,7 +79,7 @@ to `SIM-DONE` — logic proven, infrastructure not.
 | Task | Status | Depends on |
 |---|---|---|
 | P4.1 Meeting portals | `PARTIAL (32 portals synced w/ join URLs; world render pending)` | P1.6, P2.3 |
-| P4.2 Personal quests (OBO, opt-in, my_quests view) | `PARTIAL (quest pipeline + planner quests verified; OBO mentions pending)` | P1.4, P2.5 |
+| P4.2 Personal quests | `DONE (planner quests + @mention quests from webhooks, body-discard invariant tested; 19 quests built from real tenant mentions)` | — |
 | P4.3 Front Desk (Bookings) | `DONE (data side; tenant has no businesses yet)` | P1.6 |
 | P4.4 Comms Tower (CallRecords viz) | `PARTIAL (138 hourly buckets synced; world viz pending)` | P1.6 |
 | P4.5 Records Room (admin-only transcripts metadata) | `PENDING` | P4.4 |
@@ -97,6 +97,11 @@ to `SIM-DONE` — logic proven, infrastructure not.
 | P5.5 Ambient sound (default muted) | `PENDING` | P5.3 |
 
 ### P6 — Hardening & ship
+
+Pre-checks 2026-07-06: burst load 2000 events @ 641 evt/s, 0 reducer errors (77x PRD peak);
+event-to-subscriber latency p50 9ms / p95 4.7s (SLO p50<3s, p95<10s: PASS). Note: the
+~4.7s p95 outliers align with the 5s glow-decay tick — investigate view rematerialization
+coalescing in P6.1 proper.
 | Task | Status | Depends on |
 |---|---|---|
 | P6.1 Load/SLO report | `PENDING` | P1–P4 |

@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AdminSeedSchedulesReducer from "./admin_seed_schedules_reducer";
 import AdminSetScopeReducer from "./admin_set_scope_reducer";
 import AdminUpdateConfigReducer from "./admin_update_config_reducer";
 import CreateOrUpdateQuestReducer from "./create_or_update_quest_reducer";
@@ -307,6 +308,7 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("admin_seed_schedules", AdminSeedSchedulesReducer),
   __reducerSchema("admin_set_scope", AdminSetScopeReducer),
   __reducerSchema("admin_update_config", AdminUpdateConfigReducer),
   __reducerSchema("create_or_update_quest", CreateOrUpdateQuestReducer),

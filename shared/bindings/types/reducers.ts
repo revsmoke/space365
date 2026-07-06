@@ -6,6 +6,7 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AdminSeedSchedulesReducer from "../admin_seed_schedules_reducer";
 import AdminSetScopeReducer from "../admin_set_scope_reducer";
 import AdminUpdateConfigReducer from "../admin_update_config_reducer";
 import CreateOrUpdateQuestReducer from "../create_or_update_quest_reducer";
@@ -32,6 +33,7 @@ import UpsertMeetingReducer from "../upsert_meeting_reducer";
 import UpsertTeamReducer from "../upsert_team_reducer";
 import UpsertUserReducer from "../upsert_user_reducer";
 
+export type AdminSeedSchedulesParams = __Infer<typeof AdminSeedSchedulesReducer>;
 export type AdminSetScopeParams = __Infer<typeof AdminSetScopeReducer>;
 export type AdminUpdateConfigParams = __Infer<typeof AdminUpdateConfigReducer>;
 export type CreateOrUpdateQuestParams = __Infer<typeof CreateOrUpdateQuestReducer>;

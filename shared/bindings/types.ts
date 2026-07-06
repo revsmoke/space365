@@ -321,6 +321,12 @@ export const TeamMember = __t.object("TeamMember", {
 });
 export type TeamMember = __Infer<typeof TeamMember>;
 
+export const TickAchievementsTimer = __t.object("TickAchievementsTimer", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type TickAchievementsTimer = __Infer<typeof TickAchievementsTimer>;
+
 export const TickAggTimer = __t.object("TickAggTimer", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),

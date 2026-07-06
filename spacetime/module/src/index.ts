@@ -367,6 +367,11 @@ const tickRetentionTimer = table(
   { scheduled_id: t.u64().primaryKey().autoInc(), scheduled_at: t.scheduleAt() }
 );
 
+const tickAchievementsTimer = table(
+  { name: 'tick_achievements_timer', scheduled: (): any => tickAchievements },
+  { scheduled_id: t.u64().primaryKey().autoInc(), scheduled_at: t.scheduleAt() }
+);
+
 // ---------------------------------------------------------------------------
 // Schema export
 // ---------------------------------------------------------------------------
@@ -400,6 +405,7 @@ const spacetimedb = schema({
   tickAggTimer,
   tickAmbientTimer,
   tickRetentionTimer,
+  tickAchievementsTimer,
 });
 export default spacetimedb;
 
@@ -515,6 +521,7 @@ export const init = spacetimedb.init((ctx) => {
   ctx.db.tickAggTimer.insert({ scheduled_id: 0n, scheduled_at: ScheduleAt.interval(MICROS_PER_MIN) });
   ctx.db.tickAmbientTimer.insert({ scheduled_id: 0n, scheduled_at: ScheduleAt.interval(MICROS_PER_MIN) });
   ctx.db.tickRetentionTimer.insert({ scheduled_id: 0n, scheduled_at: ScheduleAt.interval(MICROS_PER_HOUR) });
+  ctx.db.tickAchievementsTimer.insert({ scheduled_id: 0n, scheduled_at: ScheduleAt.interval(24n * MICROS_PER_HOUR) });
 });
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -638,6 +645,41 @@ export const tickRetention = spacetimedb.reducer(
   }
 );
 
+/**
+ * Daily team-level awards (never individual — PRD principle 6).
+ * Awards `most_active_zone` to the team with the highest message volume in
+ * the trailing 24h, once per UTC day.
+ */
+export const tickAchievements = spacetimedb.reducer(
+  { timer: tickAchievementsTimer.rowType },
+  (ctx, _args) => {
+    const now = nowMicros(ctx);
+    const dayRef = `day-${now / (24n * MICROS_PER_HOUR)}`;
+    for (const a of [...ctx.db.achievement.iter()]) {
+      if (a.kind === 'most_active_zone' && a.window_ref === dayRef) return; // already awarded
+    }
+    const dayAgo = now - 24n * MICROS_PER_HOUR;
+    const byTeam = new Map<string, number>();
+    for (const agg of [...ctx.db.channelActivityAgg.iter()]) {
+      if (agg.window_key !== '1h' || agg.window_start < dayAgo) continue;
+      const ch = ctx.db.channel.channel_id.find(agg.channel_id);
+      if (!ch || !ch.is_enabled) continue;
+      byTeam.set(ch.team_id, (byTeam.get(ch.team_id) ?? 0) + agg.msg_count);
+    }
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const [teamId, count] of byTeam) {
+      if (count > bestCount) {
+        best = teamId;
+        bestCount = count;
+      }
+    }
+    if (best && bestCount > 0) {
+      ctx.db.achievement.insert({ id: 0n, team_id: best, kind: 'most_active_zone', earned_at: now, window_ref: dayRef });
+    }
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Role bootstrap + admin
 // ---------------------------------------------------------------------------
@@ -654,6 +696,22 @@ export const grantRole = spacetimedb.reducer(
     audit(ctx, 'grant_role', `${role} -> ${target.toHexString().slice(0, 12)}…`);
   }
 );
+
+/** Idempotent: seed any schedule-table rows missing after a hot module update. */
+export const adminSeedSchedules = spacetimedb.reducer((ctx) => {
+  requireRole(ctx, ['admin']);
+  const seed = (tbl: any, interval: bigint) => {
+    if ([...tbl.iter()].length === 0) {
+      tbl.insert({ scheduled_id: 0n, scheduled_at: ScheduleAt.interval(interval) });
+    }
+  };
+  seed(ctx.db.tickGlowDecayTimer, 5n * MICROS_PER_SEC);
+  seed(ctx.db.tickAggTimer, MICROS_PER_MIN);
+  seed(ctx.db.tickAmbientTimer, MICROS_PER_MIN);
+  seed(ctx.db.tickRetentionTimer, MICROS_PER_HOUR);
+  seed(ctx.db.tickAchievementsTimer, 24n * MICROS_PER_HOUR);
+  audit(ctx, 'seed_schedules', 'ok');
+});
 
 export const adminUpdateConfig = spacetimedb.reducer(
   { key: t.string(), value: t.string() },

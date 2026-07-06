@@ -11,3 +11,6 @@ ssl_certs/
 node_modules/
 *.png
 .env.local
+ingest/.stdb-token
+.stdb-token
+web/client-app/node_modules/

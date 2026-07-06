@@ -9,6 +9,10 @@
  *
  * Surface modifiers: --dry-run (fetch + map, no reducer writes) and
  * --only=meetings,bookings,calls,planner,audit (subset).
+ *
+ * Env flags (--serve): MENTION_QUESTS=1 (default) turns "created" channel
+ * message notifications into @mention quests (P4.2) — one Graph fetch per
+ * message, body discarded at the boundary. Set MENTION_QUESTS=0 to disable.
  */
 import { decodeJwtPayload } from "./graph_credentials";
 import { GraphTokenProvider, loadCertCredentialConfig } from "./graph_auth";
@@ -17,6 +21,7 @@ import { connectStdb, StdbWriter } from "./stdb_writer";
 import { runFullSync } from "./full_sync";
 import { runUsersDelta } from "./delta_sync";
 import { startWebhookServer } from "./webhook_server";
+import { stdbChannelNameResolver } from "./mention_quests";
 import { SubscriptionManager } from "./subscription_manager";
 import { PresencePoller } from "./presence_poller";
 import { stdbSql } from "./stdb_sql";
@@ -184,12 +189,24 @@ console.log(
 );
 manager.startRenewalLoop(60_000);
 
+// P4.2 @mention quests: default ON in --serve; MENTION_QUESTS=0 disables.
+const mentionQuestsEnabled = (process.env.MENTION_QUESTS ?? "1") !== "0";
+const questReducers = surfaceReducers(writer);
+console.log(`mention_quests.enabled=${mentionQuestsEnabled}`);
+
 const server = startWebhookServer({
   port,
   path: process.env.GRAPH_WEBHOOK_PATH ?? "/api/graph/webhook",
   clientState,
   knownSubscriptions,
   writer,
+  mentionQuests: mentionQuestsEnabled
+    ? {
+        graph,
+        createOrUpdateQuest: (args) => questReducers.createOrUpdateQuest(args),
+        resolveChannelName: stdbChannelNameResolver(),
+      }
+    : undefined,
 });
 
 const poller = new PresencePoller({ graph, writer });

@@ -12,6 +12,10 @@ import {
   mapChannelMessageNotification,
   type RawResourceData,
 } from "./notifications";
+import {
+  processMentionNotification,
+  type MentionQuestsDeps,
+} from "./mention_quests";
 
 export type WebhookServerOptions = {
   port: number;
@@ -20,6 +24,12 @@ export type WebhookServerOptions = {
   knownSubscriptions: Set<string>;
   writer: StdbWriter;
   log?: (line: string) => void;
+  /**
+   * P4.2 @mention quests: when set, each "created" chatMessage notification
+   * also triggers a Graph message fetch + mention→quest extraction (in the
+   * same async post-ACK path). Wired from main.ts behind MENTION_QUESTS.
+   */
+  mentionQuests?: Omit<MentionQuestsDeps, "log">;
 };
 
 export function startWebhookServer(options: WebhookServerOptions) {
@@ -77,7 +87,13 @@ export function startWebhookServer(options: WebhookServerOptions) {
         // ACK first, ingest asynchronously — never risk the Graph timeout.
         const rawValues = extractRawValues(body);
         queueMicrotask(() =>
-          ingestNotifications(result.notifications, rawValues, options.writer, log),
+          ingestNotifications(
+            result.notifications,
+            rawValues,
+            options.writer,
+            log,
+            options.mentionQuests,
+          ),
         );
       }
 
@@ -105,6 +121,7 @@ async function ingestNotifications(
   rawValues: Record<string, unknown>[],
   writer: StdbWriter,
   log: (line: string) => void,
+  mentionQuests?: Omit<MentionQuestsDeps, "log">,
 ): Promise<void> {
   for (let i = 0; i < notifications.length; i++) {
     const notification = notifications[i];
@@ -112,14 +129,28 @@ async function ingestNotifications(
     const args = mapChannelMessageNotification(notification, resourceData);
     if (!args) {
       log(`webhook.skip resource=${notification.resource.slice(0, 80)}`);
-      continue;
+    } else {
+      try {
+        await writer.ingestChannelMessageEvent(args);
+        log(`webhook.ingested event=${args.eventType} channel=${args.channelId}`);
+      } catch (error) {
+        // Never log message content — ids and error class only (SPEC §9).
+        log(`webhook.ingest_error channel=${args.channelId} error=${(error as Error).message}`);
+      }
     }
-    try {
-      await writer.ingestChannelMessageEvent(args);
-      log(`webhook.ingested event=${args.eventType} channel=${args.channelId}`);
-    } catch (error) {
-      // Never log message content — ids and error class only (SPEC §9).
-      log(`webhook.ingest_error channel=${args.channelId} error=${(error as Error).message}`);
+
+    // P4.2: after the metadata ingest, extract @mention quests (created only;
+    // the handler itself skips chat-only resources and 404s). Failures here
+    // must never break the ingest loop — log ids/error class only.
+    if (mentionQuests && notification.change_type === "created") {
+      try {
+        await processMentionNotification({ ...mentionQuests, log }, notification);
+      } catch (error) {
+        log(
+          `mention_quests.error resource=${notification.resource.slice(0, 80)} ` +
+            `error=${(error as Error).message}`,
+        );
+      }
     }
   }
 }

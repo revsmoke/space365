@@ -226,6 +226,16 @@ const callStatsAgg = table(
   }
 );
 
+const auditStatsAgg = table(
+  { name: 'audit_stats_agg' },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    bucket_start: t.u64().index('btree'), // hour bucket
+    category: t.string(), // directory audit category
+    count: t.u32(),
+  }
+);
+
 const subscriptionHealth = table(
   { name: 'subscription_health' },
   {
@@ -376,6 +386,7 @@ const spacetimedb = schema({
   meeting,
   bookingsAppointment,
   callStatsAgg,
+  auditStatsAgg,
   subscriptionHealth,
   graphCursor,
   playerState,
@@ -929,6 +940,21 @@ export const ingestCallStats = spacetimedb.reducer(
   }
 );
 
+export const ingestAuditStats = spacetimedb.reducer(
+  { bucketStartMicros: t.u64(), category: t.string(), count: t.u32() },
+  (ctx, a) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (!ingestAllowed(ctx)) return;
+    for (const row of [...ctx.db.auditStatsAgg.bucket_start.filter(a.bucketStartMicros)]) {
+      if (row.category === a.category) {
+        ctx.db.auditStatsAgg.id.update({ ...row, count: a.count });
+        return;
+      }
+    }
+    ctx.db.auditStatsAgg.insert({ id: 0n, bucket_start: a.bucketStartMicros, category: a.category, count: a.count });
+  }
+);
+
 export const createOrUpdateQuest = spacetimedb.reducer(
   {
     questId: t.string(),
@@ -1283,6 +1309,17 @@ export const adminConfigView = spacetimedb.view(
     const grant = ctx.db.roleGrant.identity.find(ctx.sender);
     if (!grant || grant.role !== 'admin') return [];
     return [...ctx.db.config.iter()];
+  }
+);
+
+/** Security Wing data — admin only. */
+export const adminAuditStats = spacetimedb.view(
+  { name: 'admin_audit_stats', public: true },
+  t.array(auditStatsAgg.rowType),
+  (ctx) => {
+    const grant = ctx.db.roleGrant.identity.find(ctx.sender);
+    if (!grant || grant.role !== 'admin') return [];
+    return [...ctx.db.auditStatsAgg.iter()];
   }
 );
 

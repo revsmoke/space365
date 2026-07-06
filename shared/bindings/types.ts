@@ -35,6 +35,9 @@ export type ActivityEvent = __Infer<typeof ActivityEvent>;
 export const AdminAudit = __t.object("AdminAudit", {});
 export type AdminAudit = __Infer<typeof AdminAudit>;
 
+export const AdminAuditStats = __t.object("AdminAuditStats", {});
+export type AdminAuditStats = __Infer<typeof AdminAuditStats>;
+
 export const AdminConfigView = __t.object("AdminConfigView", {});
 export type AdminConfigView = __Infer<typeof AdminConfigView>;
 
@@ -59,6 +62,14 @@ export const AuditLog = __t.object("AuditLog", {
   detailsRedacted: __t.string(),
 });
 export type AuditLog = __Infer<typeof AuditLog>;
+
+export const AuditStatsAgg = __t.object("AuditStatsAgg", {
+  id: __t.u64(),
+  bucketStart: __t.u64(),
+  category: __t.string(),
+  count: __t.u32(),
+});
+export type AuditStatsAgg = __Infer<typeof AuditStatsAgg>;
 
 export const BookingsAppointment = __t.object("BookingsAppointment", {
   appointmentId: __t.string(),

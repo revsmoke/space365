@@ -40,6 +40,7 @@ import CreateOrUpdateQuestReducer from "./create_or_update_quest_reducer";
 import DebugLinkSelfReducer from "./debug_link_self_reducer";
 import DismissQuestReducer from "./dismiss_quest_reducer";
 import GrantRoleReducer from "./grant_role_reducer";
+import IngestAuditStatsReducer from "./ingest_audit_stats_reducer";
 import IngestCallStatsReducer from "./ingest_call_stats_reducer";
 import IngestChannelMessageEventReducer from "./ingest_channel_message_event_reducer";
 import IngestPresenceReducer from "./ingest_presence_reducer";
@@ -64,6 +65,7 @@ import UpsertUserReducer from "./upsert_user_reducer";
 // Import all table schema definitions
 import AchievementRow from "./achievement_table";
 import AdminAuditRow from "./admin_audit_table";
+import AdminAuditStatsRow from "./admin_audit_stats_table";
 import AdminConfigViewRow from "./admin_config_view_table";
 import AdminHealthRow from "./admin_health_table";
 import BookingsAppointmentRow from "./bookings_appointment_table";
@@ -200,6 +202,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, AdminAuditRow),
+  adminAuditStats: __table({
+    name: 'admin_audit_stats',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, AdminAuditStatsRow),
   adminConfigView: __table({
     name: 'admin_config',
     indexes: [
@@ -280,6 +289,7 @@ const reducersSchema = __reducers(
   __reducerSchema("debug_link_self", DebugLinkSelfReducer),
   __reducerSchema("dismiss_quest", DismissQuestReducer),
   __reducerSchema("grant_role", GrantRoleReducer),
+  __reducerSchema("ingest_audit_stats", IngestAuditStatsReducer),
   __reducerSchema("ingest_call_stats", IngestCallStatsReducer),
   __reducerSchema("ingest_channel_message_event", IngestChannelMessageEventReducer),
   __reducerSchema("ingest_presence", IngestPresenceReducer),

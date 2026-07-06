@@ -12,6 +12,7 @@ import CreateOrUpdateQuestReducer from "../create_or_update_quest_reducer";
 import DebugLinkSelfReducer from "../debug_link_self_reducer";
 import DismissQuestReducer from "../dismiss_quest_reducer";
 import GrantRoleReducer from "../grant_role_reducer";
+import IngestAuditStatsReducer from "../ingest_audit_stats_reducer";
 import IngestCallStatsReducer from "../ingest_call_stats_reducer";
 import IngestChannelMessageEventReducer from "../ingest_channel_message_event_reducer";
 import IngestPresenceReducer from "../ingest_presence_reducer";
@@ -37,6 +38,7 @@ export type CreateOrUpdateQuestParams = __Infer<typeof CreateOrUpdateQuestReduce
 export type DebugLinkSelfParams = __Infer<typeof DebugLinkSelfReducer>;
 export type DismissQuestParams = __Infer<typeof DismissQuestReducer>;
 export type GrantRoleParams = __Infer<typeof GrantRoleReducer>;
+export type IngestAuditStatsParams = __Infer<typeof IngestAuditStatsReducer>;
 export type IngestCallStatsParams = __Infer<typeof IngestCallStatsReducer>;
 export type IngestChannelMessageEventParams = __Infer<typeof IngestChannelMessageEventReducer>;
 export type IngestPresenceParams = __Infer<typeof IngestPresenceReducer>;

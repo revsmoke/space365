@@ -4,7 +4,7 @@
  *  - a connection not a member of any private channel sees an empty
  *    my_private_rooms (testable today)
  *  - a private channel shows up in my_private_rooms for a member identity —
- *    BLOCKED by a module bug in sync_channel_membership (see test.todo below).
+ *    (Module bug fixed 2026-07-06: sync_channel_membership works; member test live.)
  */
 import { test, expect, afterAll, beforeAll } from "bun:test";
 import { Harness, tables, waitFor, assertNever } from "./harness.ts";

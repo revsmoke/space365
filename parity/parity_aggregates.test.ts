@@ -4,7 +4,7 @@
  *
  * Window counts are asserted server-side via `spacetime sql`; glow is asserted
  * through a live world_rooms subscription. The room_activity client view is
- * NOT subscribed to — see the KNOWN MODULE BUG test.todo at the bottom.
+ * (Module bug fixed 2026-07-06: room_activity is now safe to subscribe to.)
  */
 import { test, expect, afterAll, beforeAll } from "bun:test";
 import {

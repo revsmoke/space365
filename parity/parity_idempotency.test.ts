@@ -6,9 +6,9 @@
  *    exact same aggregate counts as the ordered replay
  *
  * Aggregate state is asserted server-side via `spacetime sql` over
- * channel_activity_agg. The client-facing `room_activity` view CANNOT be used:
- * it panics server-side (see KNOWN MODULE BUG in parity_aggregates.test.ts) and
- * subscribing to it poisons all subsequent channel writes in the database.
+ * channel_activity_agg — the source of truth for counts. (The room_activity
+ * view is also live-tested in parity_aggregates.test.ts since the 2026-07-06
+ * multi-column index filter fix.)
  */
 import { test, expect, afterAll, beforeAll } from "bun:test";
 import {

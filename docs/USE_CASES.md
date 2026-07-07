@@ -84,24 +84,24 @@ Legend: ✅ shipped · 🟡 permission held, build next · 🔒 needs new permis
 | Live channel activity | ✅ | aggregates + glow |
 | Read channel messages | ✅ | on-click ephemeral, delegated, admin-gated |
 | Send channel message | ✅ | as the signed-in user |
-| Reply to specific thread | 🟡 | same delegated scope; UI: thread picker in room panel |
+| Reply to specific thread | ✅ | per-message reply composer in the room panel |
 | Reactions | 🟡 | `ChannelMessage.Send`/messages API; add react buttons to message list |
-| 1:1 / group chats | 🟡 | `Chat.ReadWrite` delegated already consented-able; UI: "walk up to a person → chat" |
+| 1:1 / group chats | ✅ (1:1) | click any person in the world or search them → chat panel (read/send as you); group chats later |
 | Presence (read) | ✅ | org-wide rings |
 | Set my presence/status message | 🔒 | `Presence.ReadWrite` delegated |
 | Meetings: see/join | ✅ portals / 🟡 join links wired, needs interactive verify |
 | Create meeting ("open a portal") | 🔒 | `Calendars.ReadWrite` delegated |
 | Calls (start) | 🔒 | delegated calling scopes + Teams client handoff deep links (pragmatic path) |
-| Notifications back into Teams | 🟡 | `TeamsActivity.Send` held (app) — achievement/quest pings |
-| Team/channel creation from the world | 🔒 | `Team.Create`/`Channel.Create` held (app!) — admin "build a new wing" flow |
+| Notifications back into Teams | 🟡 | `TeamsActivity.Send` held; Teams app package built (deploy/teams-app) — upload + install unlocks it |
+| Channel creation from the world | ✅ | admin zone-board form → provisioning queue → real Graph channel (verified live, incl. conflict handling); team creation later |
 
 ### Groups (M365 Groups) parity — the requested focus
 | Capability | Status | Notes |
 |---|---|---|
 | Group directory as world geography | ✅ (teams-backed) | full Groups list needs `Group.Read.All` 🔒 |
 | Group membership visibility | ✅ | rendered as zone population + access control |
-| Group calendar → zone events board | 🟡 | `Calendars.Read` app-held; render zone event board next to portals |
-| Group Planner → team quest board | ✅ personal / 🟡 zone-level shared board | `Tasks.Read.All` held |
+| Group calendar → zone events board | ✅ | zone board lists upcoming meetings (times only, privacy-safe) |
+| Group Planner → team quest board | ✅ | personal quests + membership-gated zone task boards (bucket, progress, due) |
 | Group files/SharePoint → "library" building | 🔒 | `Files.Read.All` + `Sites.Read.All` — reserved lot exists in layout |
 | Group mailbox → zone mailroom (metadata) | 🔒 | `Mail.Read` held but **group** mailbox needs `Group.Read.All`; privacy review first |
 | Join/leave group from the world | 🔒 | `GroupMember.ReadWrite.All` delegated + admin policy |

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { zonePosition, ROOM_SIZE } from '@shared/layout';
-import { stdb, type RoomBurst } from '../stdb';
+import { zonePosition, ZONE_PITCH, ROOM_SIZE } from '@shared/layout';
+import { stdb, type RoomBurst, type MeetingPortal, type Decoration } from '../stdb';
 import { KIOSK, SYNTHETIC } from '../config';
 import { ZoneLayer, type ZoneDatum } from './zones';
 import { RoomLayer, type RoomDatum } from './rooms';
@@ -9,6 +9,10 @@ import { StaffLayer } from './staff';
 import { Player } from './player';
 import { DayNight } from './daynight';
 import { BurstLayer } from './bursts';
+import { PortalLayer } from './portals';
+import { CommsTower } from './tower';
+import { FrontDesk } from './frontdesk';
+import { DecorLayer } from './decor';
 import { syntheticWorld } from './synthetic';
 
 export interface PerfStats {
@@ -24,6 +28,13 @@ export interface PerfStats {
  */
 export class WorldApp {
   onRoomSelected: ((roomId: number | null, via: 'click' | 'approach') => void) | null = null;
+  onPortalSelected: ((portal: MeetingPortal) => void) | null = null;
+  onTowerSelected: (() => void) | null = null;
+  /** decorate mode: ground click → place request { x, z, zoneId } */
+  onGroundClick: ((x: number, z: number, zoneId: number) => void) | null = null;
+  /** decorate mode: clicking an existing decoration */
+  onDecorationClick: ((d: Decoration) => void) | null = null;
+  decorMode = false;
 
   #renderer: THREE.WebGLRenderer;
   #scene = new THREE.Scene();
@@ -35,6 +46,11 @@ export class WorldApp {
   #staffLayer: StaffLayer;
   #staffLabelTimer = 0;
   #burstLayer: BurstLayer;
+  #portalLayer: PortalLayer;
+  #tower: CommsTower;
+  #frontDesk: FrontDesk;
+  #decorLayer: DecorLayer;
+  #ground: THREE.Mesh;
   #dayNight: DayNight;
   #player: Player;
   #raycaster = new THREE.Raycaster();
@@ -58,6 +74,7 @@ export class WorldApp {
     );
     ground.rotation.x = -Math.PI / 2;
     this.#scene.add(ground);
+    this.#ground = ground;
     const plaza = new THREE.Mesh(
       new THREE.CylinderGeometry(16, 16, 0.8, 48),
       new THREE.MeshStandardMaterial({ color: 0x2a3654, roughness: 0.7, emissive: 0x2f6bd8, emissiveIntensity: 0.25 })
@@ -77,6 +94,10 @@ export class WorldApp {
     this.#avatarLayer = new AvatarLayer(this.#scene);
     this.#staffLayer = new StaffLayer(this.#scene);
     this.#burstLayer = new BurstLayer(this.#scene);
+    this.#portalLayer = new PortalLayer(this.#scene);
+    this.#tower = new CommsTower(this.#scene);
+    this.#frontDesk = new FrontDesk(this.#scene);
+    this.#decorLayer = new DecorLayer(this.#scene);
     this.#dayNight = new DayNight(this.#scene);
     this.#player = new Player(this.#scene, this.#camera, canvas);
 
@@ -114,20 +135,82 @@ export class WorldApp {
       this.#pointerDown = null;
       if (!start) return;
       if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return; // drag, not click
-      const mesh = this.#roomLayer.mesh;
-      if (!mesh) return;
-      const ndc = new THREE.Vector2(
-        (e.clientX / window.innerWidth) * 2 - 1,
-        -(e.clientY / window.innerHeight) * 2 + 1
-      );
-      this.#raycaster.setFromCamera(ndc, this.#camera);
-      const hits = this.#raycaster.intersectObject(mesh, false);
-      const hit = hits.find(h => h.instanceId !== undefined);
-      if (hit && hit.instanceId !== undefined) {
-        const room = this.#roomLayer.roomAt(hit.instanceId);
-        if (room) this.onRoomSelected?.(room.roomId, 'click');
-      }
+      this.pickAt(e.clientX, e.clientY);
     });
+  }
+
+  /**
+   * Run the click-pick pipeline for a CSS-pixel screen point and fire the
+   * matching callback. Public so overlays/tests can trigger picks directly.
+   */
+  pickAt(clientX: number, clientY: number): string {
+    const ndc = new THREE.Vector2(
+      (clientX / window.innerWidth) * 2 - 1,
+      -(clientY / window.innerHeight) * 2 + 1
+    );
+    this.#raycaster.setFromCamera(ndc, this.#camera);
+
+    if (this.decorMode) {
+      // 1) own decoration → remove request; 2) ground → place request
+      const decorHits = this.#raycaster.intersectObjects(this.#decorLayer.pickMeshes, false);
+      const dh = decorHits.find(h => h.instanceId !== undefined);
+      if (dh && dh.instanceId !== undefined) {
+        const d = this.#decorLayer.decorationForHit(dh.object, dh.instanceId);
+        if (d) {
+          this.onDecorationClick?.(d);
+          return 'decoration';
+        }
+      }
+      const groundHits = this.#raycaster.intersectObject(this.#ground, false);
+      if (groundHits.length > 0) {
+        const p = groundHits[0].point;
+        this.onGroundClick?.(p.x, p.z, this.#zoneIdAt(p.x, p.z));
+        return 'ground';
+      }
+      return 'none';
+    }
+
+    // portals take priority (small targets), then tower, then rooms
+    const portalHits = this.#raycaster.intersectObjects(this.#portalLayer.pickMeshes, false);
+    if (portalHits.length > 0) {
+      const portal = this.#portalLayer.portalForMesh(portalHits[0].object);
+      if (portal) {
+        this.onPortalSelected?.(portal);
+        return 'portal';
+      }
+    }
+    const towerHits = this.#raycaster.intersectObjects(this.#tower.pickMeshes, false);
+    if (towerHits.length > 0) {
+      this.onTowerSelected?.();
+      return 'tower';
+    }
+    const mesh = this.#roomLayer.mesh;
+    if (!mesh) return 'none';
+    const hits = this.#raycaster.intersectObject(mesh, false);
+    const hit = hits.find(h => h.instanceId !== undefined);
+    if (hit && hit.instanceId !== undefined) {
+      const room = this.#roomLayer.roomAt(hit.instanceId);
+      if (room) {
+        this.onRoomSelected?.(room.roomId, 'click');
+        return 'room';
+      }
+    }
+    return 'none';
+  }
+
+  /** Nearest zone id within half a pitch of a world point, else 0 (plaza). */
+  #zoneIdAt(x: number, z: number): number {
+    let best = 0;
+    let bestDist = Infinity;
+    for (const zid of stdb.zones.keys()) {
+      const p = zonePosition(zid);
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (d < bestDist) {
+        bestDist = d;
+        best = zid;
+      }
+    }
+    return bestDist <= ZONE_PITCH / 2 ? best : 0;
   }
 
   #wireStore(): void {
@@ -184,6 +267,22 @@ export class WorldApp {
       const p = this.#roomLayer.positionOf(burst.roomId);
       if (p) this.#burstLayer.spawn(p.x, 8.5, p.z, burst.magnitude);
     });
+
+    const applyPortals = () => this.#portalLayer.setPortals(stdb.portals);
+    stdb.on('portals', applyPortals);
+    applyPortals();
+
+    const applyCallStats = () => this.#tower.setStats(stdb.callStats);
+    stdb.on('callStats', applyCallStats);
+    applyCallStats();
+
+    const applyBookings = () => this.#frontDesk.setAppointments(stdb.bookings);
+    stdb.on('bookings', applyBookings);
+    applyBookings();
+
+    const applyDecorations = () => this.#decorLayer.setDecorations([...stdb.decorations.values()]);
+    stdb.on('decorations', applyDecorations);
+    applyDecorations();
   }
 
   /** Teleport camera + player to a room. */
@@ -203,6 +302,30 @@ export class WorldApp {
     return { ...this.#perf };
   }
 
+  /** Current player world position (minimap marker). */
+  getPlayerPosition(): { x: number; z: number } {
+    return { x: this.#player.position.x, z: this.#player.position.z };
+  }
+
+  setDecorMode(on: boolean): void {
+    this.decorMode = on;
+  }
+
+  /** Point the third-person camera (radians; 0 = looking north/-Z). */
+  setCameraYaw(yaw: number): void {
+    this.#player.camYaw = yaw;
+  }
+
+  /** Project a world point to CSS pixel coordinates (null if behind camera). */
+  projectToScreen(x: number, y: number, z: number): { x: number; y: number } | null {
+    const v = new THREE.Vector3(x, y, z).project(this.#camera);
+    if (v.z > 1) return null;
+    return {
+      x: ((v.x + 1) / 2) * window.innerWidth,
+      y: ((1 - v.y) / 2) * window.innerHeight,
+    };
+  }
+
   start(): void {
     this.#renderer.setAnimationLoop(() => this.#frame());
   }
@@ -220,6 +343,8 @@ export class WorldApp {
       this.#staffLayer.updateLabels(this.#camera.position);
     }
     this.#burstLayer.update(dt);
+    this.#portalLayer.update(dt, elapsed);
+    this.#frontDesk.update(dt);
     this.#dayNight.update(dt, elapsed);
     this.#checkApproach(dt);
 

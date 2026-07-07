@@ -27,6 +27,9 @@ import AdminAuditRow from '@bindings/admin_audit_table';
 import AdminAuditStatsRow from '@bindings/admin_audit_stats_table';
 import AdminTeamsRow from '@bindings/admin_teams_table';
 import AdminChannelsRow from '@bindings/admin_channels_table';
+import CallStatsAggRow from '@bindings/call_stats_agg_table';
+import BookingsAppointmentRow from '@bindings/bookings_appointment_table';
+import DecorationRow from '@bindings/decoration_table';
 
 import { STDB_URI, STDB_DB, TOKEN_STORAGE_KEY } from './config';
 
@@ -48,6 +51,9 @@ export type AdminAudit = Infer<typeof AdminAuditRow>;
 export type AdminAuditStat = Infer<typeof AdminAuditStatsRow>;
 export type AdminTeam = Infer<typeof AdminTeamsRow>;
 export type AdminChannel = Infer<typeof AdminChannelsRow>;
+export type CallStatsAgg = Infer<typeof CallStatsAggRow>;
+export type BookingsAppointment = Infer<typeof BookingsAppointmentRow>;
+export type Decoration = Infer<typeof DecorationRow>;
 
 export type ConnStatus = 'connecting' | 'live' | 'stale';
 
@@ -68,7 +74,10 @@ export type StoreEvent =
   | 'adminConfig'
   | 'adminHealth'
   | 'adminAudit'
-  | 'adminScope';
+  | 'adminScope'
+  | 'callStats'
+  | 'bookings'
+  | 'decorations';
 
 type Listener = (payload?: unknown) => void;
 
@@ -111,6 +120,19 @@ class Stdb {
   portals: MeetingPortal[] = [];
   /** user_id -> ambient staff presence (NPC avatars) */
   staff = new Map<string, StaffPresence>();
+  /** hourly call aggregates (Comms Tower) */
+  callStats: CallStatsAgg[] = [];
+  /** Bookings appointments (Front Desk ticker) */
+  bookings: BookingsAppointment[] = [];
+  /** decoration id (stringified u64) -> row */
+  decorations = new Map<string, Decoration>();
+
+  /** the M365 user id this connection is linked to, if any (from own player row) */
+  get myUserId(): string | null {
+    if (!this.identityHex) return null;
+    const me = this.players.get(this.identityHex);
+    return me && me.userId ? me.userId : null;
+  }
 
   // Admin console data (admin-gated views; all empty for non-admins).
   /** config key -> row */
@@ -200,6 +222,9 @@ class Stdb {
             tables.worldState,
             tables.meetingPortals,
             tables.evtRoomBurst,
+            tables.callStatsAgg,
+            tables.bookingsAppointment,
+            tables.decoration,
           ]);
         // room_activity is subscribed separately: the current published module
         // can panic evaluating this view (multi-column index filter bug), and
@@ -277,10 +302,15 @@ class Stdb {
     this.quests.clear();
     for (const q of conn.db.myQuests?.iter?.() ?? []) this.quests.set(q.questId, q);
     this.portals = [...conn.db.meetingPortals.iter()];
+    this.callStats = [...conn.db.callStatsAgg.iter()];
+    this.bookings = [...conn.db.bookingsAppointment.iter()];
+    this.decorations.clear();
+    for (const d of conn.db.decoration.iter()) this.decorations.set(d.id.toString(), d);
     this.#rebuildFeed();
     for (const e of [
       'zones', 'rooms', 'activity', 'players', 'users',
       'worldState', 'policy', 'presence', 'quests', 'portals', 'staff',
+      'callStats', 'bookings', 'decorations',
     ] as StoreEvent[]) {
       this.#emit(e);
     }
@@ -432,6 +462,35 @@ class Stdb {
       this.#emit('burst', row);
     });
 
+    const resyncCallStats = () => {
+      this.callStats = [...conn.db.callStatsAgg.iter()];
+      this.#emit('callStats');
+    };
+    conn.db.callStatsAgg.onInsert(resyncCallStats);
+    conn.db.callStatsAgg.onUpdate?.(resyncCallStats);
+    conn.db.callStatsAgg.onDelete(resyncCallStats);
+
+    const resyncBookings = () => {
+      this.bookings = [...conn.db.bookingsAppointment.iter()];
+      this.#emit('bookings');
+    };
+    conn.db.bookingsAppointment.onInsert(resyncBookings);
+    conn.db.bookingsAppointment.onUpdate?.(resyncBookings);
+    conn.db.bookingsAppointment.onDelete(resyncBookings);
+
+    conn.db.decoration.onInsert((_ctx, row) => {
+      this.decorations.set(row.id.toString(), row);
+      this.#emit('decorations');
+    });
+    conn.db.decoration.onUpdate?.((_ctx, _old, row) => {
+      this.decorations.set(row.id.toString(), row);
+      this.#emit('decorations');
+    });
+    conn.db.decoration.onDelete((_ctx, row) => {
+      this.decorations.delete(row.id.toString());
+      this.#emit('decorations');
+    });
+
     // Admin views: re-snapshot the affected slice on any change.
     const adminSync = (events: StoreEvent[]) => () => {
       this.#snapshotAdminSlices(conn, events);
@@ -565,6 +624,35 @@ class Stdb {
     this.conn?.reducers
       .dismissQuest({ questId })
       .catch(err => console.warn('[stdb] dismiss_quest failed', err));
+  }
+
+  /** Place a decoration prop. Resolves to an error message or null. */
+  async placeDecoration(
+    zoneId: number,
+    propKind: string,
+    x: number,
+    y: number,
+    z: number,
+    rotation: number
+  ): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.placeDecoration({ zoneId, propKind, x, y, z, rotation });
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /** Remove one of your own decorations. Resolves to an error message or null. */
+  async removeDecoration(decorationId: bigint): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.removeDecoration({ decorationId });
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
   }
 
   /** Enable/disable a team or channel in the world. Resolves to an error message or null. */

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "7d024c96-343c-403c-9030-17e161b8acaa",
+  "name": {
+    "short": "Space365",
+    "full": "Space365 — the living office world"
+  },
+  "developer": {
+    "name": "TPG Architecture",
+    "websiteUrl": "https://space365.tpgarchitecture.com",
+    "privacyUrl": "https://space365.tpgarchitecture.com/privacy-policy.html",
+    "termsOfUseUrl": "https://space365.tpgarchitecture.com/terms-of-service.html"
+  },
+  "description": {
+    "short": "Your Microsoft 365 workspace as a living, walkable office world.",
+    "full": "Space365 renders your organization's Teams, channels, meetings, presence, and activity as an ambient MMORPG-style office. Walk to your team's zone, see where work is happening, chat with colleagues, and jump into the real Teams context with one click. Privacy-first: metadata only by default; personal overlays are opt-in."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#2F6BD8",
+  "staticTabs": [
+    {
+      "entityId": "space365-world",
+      "name": "Office World",
+      "contentUrl": "https://space365.tpgarchitecture.com/?embedded=teams",
+      "websiteUrl": "https://space365.tpgarchitecture.com/",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["space365.tpgarchitecture.com"],
+  "webApplicationInfo": {
+    "id": "c0c22d69-599d-4e47-8e42-502033f70996",
+    "resource": "api://space365.tpgarchitecture.com/c0c22d69-599d-4e47-8e42-502033f70996"
+  }
+}

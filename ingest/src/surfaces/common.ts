@@ -82,6 +82,37 @@ export type SurfaceReducers = {
     due: string | undefined;
   }): Promise<void>;
   deleteZoneTask(args: { taskId: string }): Promise<void>;
+  // --- Groups permission batch (groups_sync / libraries / mailboxes) --------
+  upsertTeam(args: {
+    teamId: string;
+    name: string;
+    zoneId: number;
+    isEnabled: boolean;
+  }): Promise<void>;
+  syncTeamMembership(args: {
+    teamId: string;
+    userIds: string[];
+    roles: string[];
+  }): Promise<void>;
+  upsertZoneLibrary(args: {
+    teamId: string;
+    fileCount: number;
+    recentCount7D: number;
+    lastFileAt: bigint;
+  }): Promise<void>;
+  upsertLibraryFile(args: {
+    fileId: string;
+    teamId: string;
+    name: string;
+    webUrl: string;
+    modifiedAt: bigint;
+  }): Promise<void>;
+  pruneLibraryFiles(args: { teamId: string; keepIds: string[] }): Promise<void>;
+  upsertZoneMailbox(args: {
+    teamId: string;
+    threadCount7D: number;
+    lastTopicAt: bigint;
+  }): Promise<void>;
 };
 
 /**
@@ -99,6 +130,12 @@ export function surfaceReducers(writer: StdbWriter): SurfaceReducers {
     ingestAuditStats: (args) => r.ingestAuditStats(args),
     upsertZoneTask: (args) => r.upsertZoneTask(args),
     deleteZoneTask: (args) => r.deleteZoneTask(args),
+    upsertTeam: (args) => r.upsertTeam(args),
+    syncTeamMembership: (args) => r.syncTeamMembership(args),
+    upsertZoneLibrary: (args) => r.upsertZoneLibrary(args),
+    upsertLibraryFile: (args) => r.upsertLibraryFile(args),
+    pruneLibraryFiles: (args) => r.pruneLibraryFiles(args),
+    upsertZoneMailbox: (args) => r.upsertZoneMailbox(args),
   };
 }
 

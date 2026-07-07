@@ -9,7 +9,7 @@
  *   bun run ingest/src/main.ts --provision-once  # drain the provisioning queue, then exit
  *
  * Surface modifiers: --dry-run (fetch + map, no reducer writes) and
- * --only=meetings,bookings,calls,planner,audit (subset).
+ * --only=meetings,bookings,calls,planner,audit,groups,libraries,mailboxes (subset).
  *
  * Env flags (--serve): MENTION_QUESTS=1 (default) turns "created" channel
  * message notifications into @mention quests (P4.2) — one Graph fetch per
@@ -32,6 +32,9 @@ import { BOOKINGS_INTERVAL_MS, runBookingsOnce } from "./surfaces/bookings";
 import { CALL_STATS_INTERVAL_MS, runCallStatsOnce } from "./surfaces/call_stats";
 import { PLANNER_INTERVAL_MS, runPlannerQuestsOnce } from "./surfaces/planner_quests";
 import { AUDIT_INTERVAL_MS, runAuditTickerOnce } from "./surfaces/audit_ticker";
+import { GROUPS_SYNC_INTERVAL_MS, runGroupsSyncOnce } from "./surfaces/groups_sync";
+import { LIBRARIES_INTERVAL_MS, runLibrariesOnce } from "./surfaces/libraries";
+import { MAILBOXES_INTERVAL_MS, runMailboxesOnce } from "./surfaces/mailboxes";
 import {
   ProvisioningWorker,
   provisionReducers,
@@ -59,7 +62,7 @@ if (!mode) {
   console.error(
     "Usage: bun run ingest/src/main.ts --validate | --sync-once | --serve | " +
       "--surfaces-once | --surfaces-serve | --provision-once " +
-      "[--dry-run] [--only=meetings,bookings,calls,planner,audit]",
+      "[--dry-run] [--only=meetings,bookings,calls,planner,audit,groups,libraries,mailboxes]",
   );
   process.exit(2);
 }
@@ -143,6 +146,21 @@ if (mode === "surfaces-once" || mode === "surfaces-serve") {
       name: "audit",
       intervalMs: AUDIT_INTERVAL_MS,
       run: () => runAuditTickerOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "groups",
+      intervalMs: GROUPS_SYNC_INTERVAL_MS,
+      run: () => runGroupsSyncOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "libraries",
+      intervalMs: LIBRARIES_INTERVAL_MS,
+      run: () => runLibrariesOnce(graph, reducers, { dryRun }),
+    },
+    {
+      name: "mailboxes",
+      intervalMs: MAILBOXES_INTERVAL_MS,
+      run: () => runMailboxesOnce(graph, reducers, { dryRun }),
     },
   ].filter((surface) => !only || only.has(surface.name));
 

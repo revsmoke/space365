@@ -17,6 +17,7 @@ import { Onboarding, shouldOnboard } from './Onboarding';
 import { EmotePopup } from './EmotePopup';
 import { ChatPanel, type ChatTarget } from './ChatPanel';
 import { ZoneBoard } from './ZoneBoard';
+import { LibraryPanel } from './LibraryPanel';
 
 /** Minimal hash routing: '#/admin' → admin console, anything else → world UI. */
 function useHashRoute(): string {
@@ -33,6 +34,7 @@ export function App({ world }: { world: WorldApp }) {
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [selectedPortal, setSelectedPortal] = useState<MeetingPortal | null>(null);
   const [selectedZone, setSelectedZone] = useState<number | null>(null);
+  const [selectedLibrary, setSelectedLibrary] = useState<string | null>(null);
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null);
   const [towerOpen, setTowerOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -58,6 +60,14 @@ export function App({ world }: { world: WorldApp }) {
       setSelectedRoom(null);
       setSelectedPortal(null);
     };
+    // kiosk: library clicks are inert, like person clicks
+    world.onLibrarySelected = KIOSK
+      ? null
+      : teamId => {
+          setSelectedLibrary(teamId);
+          setSelectedRoom(null);
+          setSelectedPortal(null);
+        };
     // kiosk: no chat anywhere — person clicks are simply inert
     world.onPersonSelected = KIOSK ? null : person => setChatTarget(person);
     return () => {
@@ -65,6 +75,7 @@ export function App({ world }: { world: WorldApp }) {
       world.onPortalSelected = null;
       world.onTowerSelected = null;
       world.onZoneSelected = null;
+      world.onLibrarySelected = null;
       world.onPersonSelected = null;
     };
   }, [world]);
@@ -91,7 +102,21 @@ export function App({ world }: { world: WorldApp }) {
         <PortalCard portal={selectedPortal} onClose={() => setSelectedPortal(null)} />
       )}
       {selectedZone !== null && selectedRoom === null && selectedPortal === null && (
-        <ZoneBoard zoneId={selectedZone} onClose={() => setSelectedZone(null)} />
+        <ZoneBoard
+          zoneId={selectedZone}
+          onClose={() => setSelectedZone(null)}
+          onOpenLibrary={
+            KIOSK
+              ? undefined
+              : teamId => {
+                  setSelectedLibrary(teamId);
+                  setSelectedZone(null);
+                }
+          }
+        />
+      )}
+      {!KIOSK && selectedLibrary !== null && (
+        <LibraryPanel teamId={selectedLibrary} onClose={() => setSelectedLibrary(null)} />
       )}
       {!KIOSK && chatTarget !== null && (
         <ChatPanel target={chatTarget} onClose={() => setChatTarget(null)} />

@@ -90,15 +90,29 @@ function RequestChannelForm({ teamId }: { teamId: string }) {
   );
 }
 
-export function ZoneBoard({ zoneId, onClose }: { zoneId: number; onClose: () => void }) {
+export function ZoneBoard({
+  zoneId,
+  onClose,
+  onOpenLibrary,
+}: {
+  zoneId: number;
+  onClose: () => void;
+  /** opens the library panel; omitted in kiosk mode (line renders as plain text) */
+  onOpenLibrary?: (teamId: string) => void;
+}) {
   useStore('zones');
   useStore('portals');
   useStore('zoneTasks');
   useStore('adminConfig');
+  useStore('zoneLibraries');
+  useStore('zoneMailboxes');
   useStore('status');
 
   const zone = stdb.zones.get(zoneId);
   if (!zone) return null;
+
+  const lib = stdb.zoneLibraries.get(zone.teamId);
+  const mailbox = stdb.zoneMailboxes.get(zone.teamId);
 
   // de-dupe by eventId: the meeting_portals view can carry duplicate rows
   // per event (observed on the dev db), and eventId doubles as the React key
@@ -116,6 +130,20 @@ export function ZoneBoard({ zoneId, onClose }: { zoneId: number; onClose: () => 
           ✕
         </button>
       </div>
+
+      {lib &&
+        (onOpenLibrary ? (
+          <button className="zone-stat-line zone-stat-link" onClick={() => onOpenLibrary(zone.teamId)}>
+            📚 {lib.fileCount} files · {lib.recentCount7D} this week
+          </button>
+        ) : (
+          <div className="zone-stat-line">
+            📚 {lib.fileCount} files · {lib.recentCount7D} this week
+          </div>
+        ))}
+      {mailbox && (
+        <div className="zone-stat-line">✉️ {mailbox.threadCount7D} mail threads this week</div>
+      )}
 
       <div className="zone-section-title">Upcoming meetings</div>
       {portals.length === 0 && <div className="dim zone-empty">No meetings on the board.</div>}

@@ -12,6 +12,7 @@ import { BurstLayer } from './bursts';
 import { PortalLayer } from './portals';
 import { CommsTower } from './tower';
 import { FrontDesk } from './frontdesk';
+import { LibraryLayer, type LibraryDatum } from './library';
 import { DecorLayer } from './decor';
 import { syntheticWorld } from './synthetic';
 
@@ -30,6 +31,8 @@ export class WorldApp {
   onRoomSelected: ((roomId: number | null, via: 'click' | 'approach') => void) | null = null;
   onPortalSelected: ((portal: MeetingPortal) => void) | null = null;
   onTowerSelected: (() => void) | null = null;
+  /** clicking a zone library building (null in kiosk → click is inert) */
+  onLibrarySelected: ((teamId: string) => void) | null = null;
   /** clicking a staff figure or a linked player avatar (person → chat) */
   onPersonSelected: ((person: { oid: string; displayName: string }) => void) | null = null;
   /** clicking a zone platform/label (only when nothing else was hit) */
@@ -53,6 +56,7 @@ export class WorldApp {
   #portalLayer: PortalLayer;
   #tower: CommsTower;
   #frontDesk: FrontDesk;
+  #libraryLayer: LibraryLayer;
   #decorLayer: DecorLayer;
   #ground: THREE.Mesh;
   #dayNight: DayNight;
@@ -101,6 +105,7 @@ export class WorldApp {
     this.#portalLayer = new PortalLayer(this.#scene);
     this.#tower = new CommsTower(this.#scene);
     this.#frontDesk = new FrontDesk(this.#scene);
+    this.#libraryLayer = new LibraryLayer(this.#scene);
     this.#decorLayer = new DecorLayer(this.#scene);
     this.#dayNight = new DayNight(this.#scene);
     this.#player = new Player(this.#scene, this.#camera, canvas);
@@ -187,6 +192,15 @@ export class WorldApp {
     if (towerHits.length > 0) {
       this.onTowerSelected?.();
       return 'tower';
+    }
+    // library buildings: between tower and rooms in priority
+    const libHits = this.#raycaster.intersectObjects(this.#libraryLayer.pickMeshes, false);
+    if (libHits.length > 0) {
+      const teamId = this.#libraryLayer.teamIdForHit(libHits[0].object);
+      if (teamId) {
+        this.onLibrarySelected?.(teamId);
+        return 'library';
+      }
     }
     // people: player avatars first (they walk), then ambient staff figures.
     // Unlinked players resolve to null — fall through gracefully.
@@ -313,6 +327,26 @@ export class WorldApp {
     const applyBookings = () => this.#frontDesk.setAppointments(stdb.bookings);
     stdb.on('bookings', applyBookings);
     applyBookings();
+
+    // library buildings: need both the zone (for position) and its stats row
+    const applyLibraries = () => {
+      const libs: LibraryDatum[] = [];
+      for (const z of stdb.zones.values()) {
+        const lib = stdb.zoneLibraries.get(z.teamId);
+        if (lib && lib.fileCount > 0) {
+          libs.push({
+            zoneId: z.zoneId,
+            teamId: z.teamId,
+            fileCount: lib.fileCount,
+            recentCount7D: lib.recentCount7D,
+          });
+        }
+      }
+      this.#libraryLayer.setLibraries(libs);
+    };
+    stdb.on('zones', applyLibraries);
+    stdb.on('zoneLibraries', applyLibraries);
+    applyLibraries();
 
     const applyDecorations = () => this.#decorLayer.setDecorations([...stdb.decorations.values()]);
     stdb.on('decorations', applyDecorations);

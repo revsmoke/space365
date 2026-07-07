@@ -73,6 +73,11 @@ export function LegendModal({ onClose }: { onClose: () => void }) {
           <h3>Objects & ambience</h3>
           <ul className="legend-list">
             <Row swatch="🛎️" name="Front Desk (south of plaza)" desc="today's Bookings appointments ticker" />
+            <Row
+              swatch="📚"
+              name="Library (small building in a zone corner)"
+              desc="the team's shared files; the glowing book slot brightens with this week's updates. Click for stats and, if you're a member, the file list"
+            />
             <Row swatch="🪴" name="Props" desc="decorations placed by players (🎨 button; 20 per person)" />
             <Row
               swatch="🌗"

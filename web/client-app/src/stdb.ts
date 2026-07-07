@@ -31,6 +31,9 @@ import AdminChannelsRow from '@bindings/admin_channels_table';
 import CallStatsAggRow from '@bindings/call_stats_agg_table';
 import BookingsAppointmentRow from '@bindings/bookings_appointment_table';
 import DecorationRow from '@bindings/decoration_table';
+import ZoneLibraryRow from '@bindings/zone_library_table';
+import ZoneMailboxRow from '@bindings/zone_mailbox_table';
+import MyLibraryFilesRow from '@bindings/my_library_files_table';
 
 import { STDB_URI, STDB_DB, ANON_TOKEN_STORAGE_KEY, LEGACY_TOKEN_STORAGE_KEY } from './config';
 import { account, getIdToken } from './auth';
@@ -57,6 +60,9 @@ export type AdminChannel = Infer<typeof AdminChannelsRow>;
 export type CallStatsAgg = Infer<typeof CallStatsAggRow>;
 export type BookingsAppointment = Infer<typeof BookingsAppointmentRow>;
 export type Decoration = Infer<typeof DecorationRow>;
+export type ZoneLibrary = Infer<typeof ZoneLibraryRow>;
+export type ZoneMailbox = Infer<typeof ZoneMailboxRow>;
+export type LibraryFile = Infer<typeof MyLibraryFilesRow>;
 
 export type ConnStatus = 'connecting' | 'live' | 'stale';
 
@@ -81,7 +87,10 @@ export type StoreEvent =
   | 'adminScope'
   | 'callStats'
   | 'bookings'
-  | 'decorations';
+  | 'decorations'
+  | 'zoneLibraries'
+  | 'zoneMailboxes'
+  | 'libraryFiles';
 
 type Listener = (payload?: unknown) => void;
 
@@ -132,6 +141,12 @@ class Stdb {
   bookings: BookingsAppointment[] = [];
   /** decoration id (stringified u64) -> row */
   decorations = new Map<string, Decoration>();
+  /** team_id -> ambient SharePoint library stats (public) */
+  zoneLibraries = new Map<string, ZoneLibrary>();
+  /** team_id -> ambient group-mailbox stats (public) */
+  zoneMailboxes = new Map<string, ZoneMailbox>();
+  /** file_id -> library file visible to me (my_library_files; membership-gated) */
+  libraryFiles = new Map<string, LibraryFile>();
 
   /** the M365 user id this connection is linked to, if any (from own player row) */
   get myUserId(): string | null {
@@ -266,6 +281,8 @@ class Stdb {
             tables.callStatsAgg,
             tables.bookingsAppointment,
             tables.decoration,
+            tables.zoneLibrary,
+            tables.zoneMailbox,
           ]);
         // room_activity is subscribed separately: the current published module
         // can panic evaluating this view (multi-column index filter bug), and
@@ -286,6 +303,17 @@ class Stdb {
           })
           .onError(ctx => console.warn('[stdb] my_zone_tasks subscription error', ctx))
           .subscribe([tables.myZoneTasks]);
+        // my_library_files is membership-gated (empty unless signed in + member).
+        // Isolated so a view error never affects the world subscription.
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => {
+            this.libraryFiles.clear();
+            for (const f of conn.db.myLibraryFiles.iter()) this.libraryFiles.set(f.fileId, f);
+            this.#emit('libraryFiles');
+          })
+          .onError(ctx => console.warn('[stdb] my_library_files subscription error', ctx))
+          .subscribe([tables.myLibraryFiles]);
         // my_quests is likewise identity-gated; callbacks were registered but it
         // was never subscribed — the quest board stayed empty without this.
         conn
@@ -381,11 +409,15 @@ class Stdb {
     this.bookings = [...conn.db.bookingsAppointment.iter()];
     this.decorations.clear();
     for (const d of conn.db.decoration.iter()) this.decorations.set(d.id.toString(), d);
+    this.zoneLibraries.clear();
+    for (const l of conn.db.zoneLibrary.iter()) this.zoneLibraries.set(l.teamId, l);
+    this.zoneMailboxes.clear();
+    for (const m of conn.db.zoneMailbox.iter()) this.zoneMailboxes.set(m.teamId, m);
     this.#rebuildFeed();
     for (const e of [
       'zones', 'rooms', 'activity', 'players', 'users',
       'worldState', 'policy', 'presence', 'quests', 'portals', 'staff',
-      'callStats', 'bookings', 'decorations',
+      'callStats', 'bookings', 'decorations', 'zoneLibraries', 'zoneMailboxes',
     ] as StoreEvent[]) {
       this.#emit(e);
     }
@@ -579,6 +611,45 @@ class Stdb {
     conn.db.decoration.onDelete((_ctx, row) => {
       this.decorations.delete(row.id.toString());
       this.#emit('decorations');
+    });
+
+    conn.db.zoneLibrary.onInsert((_ctx, row) => {
+      this.zoneLibraries.set(row.teamId, row);
+      this.#emit('zoneLibraries');
+    });
+    conn.db.zoneLibrary.onUpdate?.((_ctx, _old, row) => {
+      this.zoneLibraries.set(row.teamId, row);
+      this.#emit('zoneLibraries');
+    });
+    conn.db.zoneLibrary.onDelete((_ctx, row) => {
+      this.zoneLibraries.delete(row.teamId);
+      this.#emit('zoneLibraries');
+    });
+
+    conn.db.zoneMailbox.onInsert((_ctx, row) => {
+      this.zoneMailboxes.set(row.teamId, row);
+      this.#emit('zoneMailboxes');
+    });
+    conn.db.zoneMailbox.onUpdate?.((_ctx, _old, row) => {
+      this.zoneMailboxes.set(row.teamId, row);
+      this.#emit('zoneMailboxes');
+    });
+    conn.db.zoneMailbox.onDelete((_ctx, row) => {
+      this.zoneMailboxes.delete(row.teamId);
+      this.#emit('zoneMailboxes');
+    });
+
+    conn.db.myLibraryFiles.onInsert((_ctx, row) => {
+      this.libraryFiles.set(row.fileId, row);
+      this.#emit('libraryFiles');
+    });
+    conn.db.myLibraryFiles.onUpdate?.((_ctx, _old, row) => {
+      this.libraryFiles.set(row.fileId, row);
+      this.#emit('libraryFiles');
+    });
+    conn.db.myLibraryFiles.onDelete((_ctx, row) => {
+      this.libraryFiles.delete(row.fileId);
+      this.#emit('libraryFiles');
     });
 
     // Admin views: re-snapshot the affected slice on any change.

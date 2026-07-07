@@ -56,7 +56,15 @@ function AccountControl() {
   );
 }
 
-export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivacy: () => void }) {
+export function TopBar({
+  world,
+  onOpenPrivacy,
+  onOpenLegend,
+}: {
+  world: WorldApp;
+  onOpenPrivacy: () => void;
+  onOpenLegend: () => void;
+}) {
   useStore('status');
   useStore('zones');
   useStore('rooms');
@@ -121,6 +129,9 @@ export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivac
             Admin
           </a>
         )}
+        <button className="ghost-btn" onClick={onOpenLegend} title="What am I looking at?">
+          ❓ Legend
+        </button>
         {!KIOSK && (
           <button className="ghost-btn" onClick={onOpenPrivacy}>
             Privacy & data

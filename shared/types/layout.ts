@@ -11,7 +11,10 @@
  */
 
 export const LAYOUT_VERSION = 1;
-export const ZONE_SLOTS = 64;
+// 64 saturated on 2026-07-07 (tenant has 100+ unified groups). Raising the
+// modulus only affects NEW assignments; stored zone_ids keep their ring
+// positions, so existing geography is untouched.
+export const ZONE_SLOTS = 256;
 export const ROOMS_PER_ZONE = 24;
 
 /** Zone footprint in world units. */

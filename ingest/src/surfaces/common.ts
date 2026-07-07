@@ -72,6 +72,16 @@ export type SurfaceReducers = {
     category: string;
     count: number;
   }): Promise<void>;
+  upsertZoneTask(args: {
+    taskId: string;
+    teamId: string;
+    planTitle: string;
+    title: string;
+    bucket: string;
+    percentComplete: number;
+    due: string | undefined;
+  }): Promise<void>;
+  deleteZoneTask(args: { taskId: string }): Promise<void>;
 };
 
 /**
@@ -87,6 +97,8 @@ export function surfaceReducers(writer: StdbWriter): SurfaceReducers {
     ingestCallStats: (args) => r.ingestCallStats(args),
     createOrUpdateQuest: (args) => r.createOrUpdateQuest(args),
     ingestAuditStats: (args) => r.ingestAuditStats(args),
+    upsertZoneTask: (args) => r.upsertZoneTask(args),
+    deleteZoneTask: (args) => r.deleteZoneTask(args),
   };
 }
 

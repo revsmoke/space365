@@ -31,8 +31,13 @@ import {
   type CallRecord,
 } from "../ingest/src/surfaces/call_stats";
 import {
+  bucketNameMap,
+  detectVanishedTasks,
+  dueDatePart,
   plannerDeeplink,
+  runPlannerQuestsOnce,
   taskToQuests,
+  taskToZoneTask,
   type PlannerTask,
 } from "../ingest/src/surfaces/planner_quests";
 import { aggregateDirectoryAudits } from "../ingest/src/surfaces/audit_ticker";
@@ -362,6 +367,214 @@ describe("planner: task → quest mapping", () => {
 
   test("missing percentComplete counts as incomplete", () => {
     expect(taskToQuests({ ...task, percentComplete: undefined }, "p")).toHaveLength(2);
+  });
+});
+
+describe("planner: task → zone task mapping", () => {
+  const buckets = bucketNameMap([
+    { id: "bucket-1", name: "To do" },
+    { id: "bucket-2", name: "Doing" },
+    { id: "no-name" }, // nameless bucket → ''
+    { name: "id-less bucket ignored" },
+  ]);
+
+  test("bucket names map by id, nameless/unknown ids fall back to ''", () => {
+    expect(buckets.get("bucket-1")).toBe("To do");
+    expect(buckets.get("no-name")).toBe("");
+    expect(buckets.size).toBe(3);
+  });
+
+  test("dueDateTime keeps only the date part", () => {
+    expect(dueDatePart("2026-07-10T10:00:00Z")).toBe("2026-07-10");
+    expect(dueDatePart(null)).toBeUndefined();
+    expect(dueDatePart(undefined)).toBeUndefined();
+    expect(dueDatePart("garbage")).toBeUndefined();
+  });
+
+  test("maps team id, plan title, bucket name, percent, due", () => {
+    const row = taskToZoneTask(
+      {
+        id: "task-1",
+        title: "Ship it",
+        percentComplete: 50,
+        bucketId: "bucket-2",
+        dueDateTime: "2026-07-10T10:00:00Z",
+      },
+      "team-1",
+      "Sprint 12",
+      buckets,
+    );
+    expect(row).toEqual({
+      taskId: "task-1",
+      teamId: "team-1",
+      planTitle: "Sprint 12",
+      title: "Ship it",
+      bucket: "Doing",
+      percentComplete: 50,
+      due: "2026-07-10",
+    });
+  });
+
+  test("completed tasks still map (clients style them; never dropped)", () => {
+    const row = taskToZoneTask(
+      { id: "task-2", title: "Done thing", percentComplete: 100 },
+      "team-1",
+      "Sprint 12",
+      buckets,
+    )!;
+    expect(row.percentComplete).toBe(100);
+    expect(row.bucket).toBe("");
+    expect(row.due).toBeUndefined();
+  });
+
+  test("unknown bucket ids fall back to '', id-less tasks map to null", () => {
+    expect(
+      taskToZoneTask({ id: "t", bucketId: "missing" }, "team-1", "p", buckets)!.bucket,
+    ).toBe("");
+    expect(taskToZoneTask({ title: "no id" }, "team-1", "p", buckets)).toBeNull();
+  });
+});
+
+describe("planner: vanished-task delete detection", () => {
+  const known: [string, string][] = [
+    ["task-a", "team-1"],
+    ["task-b", "team-1"],
+    ["task-c", "team-2"],
+  ];
+
+  test("deletes ids missing from a polled team's sync", () => {
+    expect(
+      detectVanishedTasks(known, new Set(["task-a"]), new Set(["team-1", "team-2"])),
+    ).toEqual(["task-b", "task-c"]);
+  });
+
+  test("never deletes tasks of teams that were skipped this run", () => {
+    expect(detectVanishedTasks(known, new Set(["task-a"]), new Set(["team-1"]))).toEqual([
+      "task-b",
+    ]);
+    expect(detectVanishedTasks(known, new Set(), new Set())).toEqual([]);
+  });
+});
+
+describe("planner: poll loop writes zone tasks and prunes vanished ones", () => {
+  const sqlStub = (knownTasks: [string, string][]) => async (query: string) => {
+    if (query.includes("FROM team")) return [["team-1"], ["team-dead"]];
+    if (query.includes("FROM zone_task")) return knownTasks;
+    throw new Error(`unexpected query: ${query}`);
+  };
+
+  const graph: GraphLike = {
+    get: async () => ({}),
+    getAll: async (path: string) => {
+      if (path === "/groups/team-1/planner/plans") {
+        return [{ id: "plan-1", title: "Sprint 12" }];
+      }
+      if (path === "/groups/team-dead/planner/plans") {
+        throw new GraphError(400, "BadRequest", "not a GUID");
+      }
+      if (path === "/planner/plans/plan-1/buckets") {
+        return [{ id: "bucket-1", name: "To do" }];
+      }
+      if (path === "/planner/plans/plan-1/tasks") {
+        return [
+          {
+            id: "task-live",
+            title: "Live task",
+            percentComplete: 0,
+            bucketId: "bucket-1",
+            dueDateTime: "2026-07-20T00:00:00Z",
+            assignments: { "user-a": {} },
+          },
+          {
+            id: "task-complete",
+            title: "Finished",
+            percentComplete: 100,
+            bucketId: "bucket-1",
+          },
+        ] as Record<string, unknown>[];
+      }
+      throw new Error(`unexpected path: ${path}`);
+    },
+  };
+
+  test("upserts every task, deletes vanished, keeps skipped teams intact", async () => {
+    const quests: unknown[] = [];
+    const zoneUpserts: Record<string, unknown>[] = [];
+    const deletes: string[] = [];
+    const result = await runPlannerQuestsOnce(
+      graph,
+      {
+        createOrUpdateQuest: async (args) => void quests.push(args),
+        upsertZoneTask: async (args) => void zoneUpserts.push(args),
+        deleteZoneTask: async ({ taskId }) => void deletes.push(taskId),
+      },
+      {
+        log: () => {},
+        sql: sqlStub([
+          ["task-live", "team-1"], // still present → kept
+          ["task-vanished", "team-1"], // gone from Graph → deleted
+          ["task-elsewhere", "team-dead"], // team skipped → kept
+        ]),
+      },
+    );
+
+    expect(result.teamsPolled).toBe(1);
+    expect(result.teamsSkipped).toBe(1);
+    expect(result.tasksSeen).toBe(2);
+    expect(result.questsWritten).toBe(1); // completed task yields no quest
+    expect(result.zoneTasksWritten).toBe(2); // ...but does yield a zone task
+    expect(result.zoneTasksDeleted).toBe(1);
+    expect(deletes).toEqual(["task-vanished"]);
+    expect(zoneUpserts.map((z) => z.taskId)).toEqual(["task-live", "task-complete"]);
+    expect(zoneUpserts[0]).toEqual({
+      taskId: "task-live",
+      teamId: "team-1",
+      planTitle: "Sprint 12",
+      title: "Live task",
+      bucket: "To do",
+      percentComplete: 0,
+      due: "2026-07-20",
+    });
+  });
+
+  test("dry run maps everything but writes nothing", async () => {
+    const writes: unknown[] = [];
+    const result = await runPlannerQuestsOnce(
+      graph,
+      {
+        createOrUpdateQuest: async (args) => void writes.push(args),
+        upsertZoneTask: async (args) => void writes.push(args),
+        deleteZoneTask: async (args) => void writes.push(args),
+      },
+      { log: () => {}, dryRun: true, sql: sqlStub([["task-vanished", "team-1"]]) },
+    );
+    expect(writes).toHaveLength(0);
+    expect(result.zoneTasksWritten).toBe(2);
+    expect(result.zoneTasksDeleted).toBe(1);
+  });
+
+  test("bucket fetch failure degrades to '' bucket names", async () => {
+    const noBucketGraph: GraphLike = {
+      get: async () => ({}),
+      getAll: async (path: string) => {
+        if (path.includes("/buckets")) {
+          throw new GraphError(403, "Forbidden", "no");
+        }
+        return graph.getAll(path);
+      },
+    };
+    const zoneUpserts: Record<string, unknown>[] = [];
+    await runPlannerQuestsOnce(
+      noBucketGraph,
+      {
+        createOrUpdateQuest: async () => {},
+        upsertZoneTask: async (args) => void zoneUpserts.push(args),
+        deleteZoneTask: async () => {},
+      },
+      { log: () => {}, sql: sqlStub([]) },
+    );
+    expect(zoneUpserts).toHaveLength(2);
+    expect(zoneUpserts.every((z) => z.bucket === "")).toBe(true);
   });
 });
 

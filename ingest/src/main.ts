@@ -3,9 +3,10 @@
  *
  *   bun run ingest/src/main.ts --validate        # cert-assertion auth check (real call)
  *   bun run ingest/src/main.ts --sync-once       # full sync + users delta, then exit
- *   bun run ingest/src/main.ts --serve           # webhook + subscriptions + presence
+ *   bun run ingest/src/main.ts --serve           # webhook + subscriptions + presence + provisioning
  *   bun run ingest/src/main.ts --surfaces-once   # one pass over the P4 surfaces, then exit
  *   bun run ingest/src/main.ts --surfaces-serve  # poll the P4 surfaces on their intervals
+ *   bun run ingest/src/main.ts --provision-once  # drain the provisioning queue, then exit
  *
  * Surface modifiers: --dry-run (fetch + map, no reducer writes) and
  * --only=meetings,bookings,calls,planner,audit (subset).
@@ -31,6 +32,12 @@ import { BOOKINGS_INTERVAL_MS, runBookingsOnce } from "./surfaces/bookings";
 import { CALL_STATS_INTERVAL_MS, runCallStatsOnce } from "./surfaces/call_stats";
 import { PLANNER_INTERVAL_MS, runPlannerQuestsOnce } from "./surfaces/planner_quests";
 import { AUDIT_INTERVAL_MS, runAuditTickerOnce } from "./surfaces/audit_ticker";
+import {
+  ProvisioningWorker,
+  provisionReducers,
+  runProvisionOnce,
+  startProvisioning,
+} from "./provisioning";
 
 const argv = process.argv.slice(2);
 const args = new Set(argv);
@@ -42,14 +49,17 @@ const mode = args.has("--serve")
       ? "surfaces-once"
       : args.has("--surfaces-serve")
         ? "surfaces-serve"
-        : args.has("--validate")
-          ? "validate"
-          : null;
+        : args.has("--provision-once")
+          ? "provision-once"
+          : args.has("--validate")
+            ? "validate"
+            : null;
 
 if (!mode) {
   console.error(
     "Usage: bun run ingest/src/main.ts --validate | --sync-once | --serve | " +
-      "--surfaces-once | --surfaces-serve [--dry-run] [--only=meetings,bookings,calls,planner,audit]",
+      "--surfaces-once | --surfaces-serve | --provision-once " +
+      "[--dry-run] [--only=meetings,bookings,calls,planner,audit]",
   );
   process.exit(2);
 }
@@ -76,6 +86,17 @@ if (mode === "validate") {
 const stdb = await connectStdb();
 console.log(`stdb.identity=${stdb.identityHex}`);
 const writer = new StdbWriter(stdb.conn);
+
+if (mode === "provision-once") {
+  const worker = new ProvisioningWorker({
+    graph,
+    reducers: provisionReducers(writer),
+  });
+  const handled = await runProvisionOnce(stdb.conn, worker);
+  console.log(`provision.once done handled=${handled}`);
+  stdb.disconnect();
+  process.exit(0);
+}
 
 if (mode === "sync-once") {
   const sync = await runFullSync(graph, writer);
@@ -212,6 +233,13 @@ const server = startWebhookServer({
 const poller = new PresencePoller({ graph, writer });
 await poller.pollOnce();
 poller.start(60_000);
+
+// Provisioning worker: executes admin channel requests from service_queue.
+const provisioningWorker = new ProvisioningWorker({
+  graph,
+  reducers: provisionReducers(writer),
+});
+await startProvisioning(stdb.conn, provisioningWorker);
 
 console.log(`serve.ready port=${port}`);
 

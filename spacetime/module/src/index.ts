@@ -1308,14 +1308,14 @@ export const dismissQuest = spacetimedb.reducer(
 // ---------------------------------------------------------------------------
 // Views (authorization surface)
 // ---------------------------------------------------------------------------
-const ZoneView = t.object('ZoneView', {
-  team_id: t.string(),
+const ZoneView = t.row('ZoneView', {
+  team_id: t.string().primaryKey(),
   name: t.string(),
   zone_id: t.u32(),
 });
 
-const RoomView = t.object('RoomView', {
-  channel_id: t.string(),
+const RoomView = t.row('RoomView', {
+  channel_id: t.string().primaryKey(),
   team_id: t.string(),
   name: t.string(),
   room_id: t.u32(),
@@ -1333,13 +1333,14 @@ const AggView = t.object('AggView', {
   active_user_estimate: t.u32(),
 });
 
-const PresenceView = t.object('PresenceView', {
-  user_id: t.string(),
+const PresenceView = t.row('PresenceView', {
+  user_id: t.string().primaryKey(),
   availability: t.string(),
   source: t.string(),
 });
 
-const PolicyView = t.object('PolicyView', {
+const PolicyView = t.row('PolicyView', {
+  id: t.u32().primaryKey(), // constant 0: single-row view needs a PK for clean cache updates
   allow_presence: t.bool(),
   allow_aggregates: t.bool(),
   allow_content_on_click: t.bool(),
@@ -1449,8 +1450,8 @@ export const presencePublic = spacetimedb.anonymousView(
   }
 );
 
-const StaffPresenceView = t.object('StaffPresenceView', {
-  user_id: t.string(),
+const StaffPresenceView = t.row('StaffPresenceView', {
+  user_id: t.string().primaryKey(),
   display_name: t.string(),
   zone_id: t.u32(), // primary team zone (first enabled membership), 0 = plaza
   availability: t.string(),
@@ -1508,6 +1509,7 @@ export const worldPolicy = spacetimedb.anonymousView(
       return row ? row.value : d;
     };
     return [{
+      id: 0,
       allow_presence: get('allow_presence', 'true') === 'true',
       allow_aggregates: get('allow_aggregates', 'true') === 'true',
       allow_content_on_click:
@@ -1533,8 +1535,8 @@ export const myQuests = spacetimedb.view(
   }
 );
 
-const MeetingPortalView = t.object('MeetingPortalView', {
-  event_id: t.string(),
+const MeetingPortalView = t.row('MeetingPortalView', {
+  event_id: t.string().primaryKey(),
   zone_id: t.u32(),
   starts_at: t.u64(),
   ends_at: t.u64(),

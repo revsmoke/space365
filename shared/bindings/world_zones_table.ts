@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  teamId: __t.string().name("team_id"),
+  teamId: __t.string().primaryKey().name("team_id"),
   name: __t.string(),
   zoneId: __t.u32().name("zone_id"),
 });

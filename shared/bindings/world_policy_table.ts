@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
+  id: __t.u32().primaryKey(),
   allowPresence: __t.bool().name("allow_presence"),
   allowAggregates: __t.bool().name("allow_aggregates"),
   allowContentOnClick: __t.bool().name("allow_content_on_click"),

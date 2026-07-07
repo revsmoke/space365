@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  eventId: __t.string().name("event_id"),
+  eventId: __t.string().primaryKey().name("event_id"),
   zoneId: __t.u32().name("zone_id"),
   startsAt: __t.u64().name("starts_at"),
   endsAt: __t.u64().name("ends_at"),

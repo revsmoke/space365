@@ -217,6 +217,7 @@ export const PlayerState = __t.object("PlayerState", {
 export type PlayerState = __Infer<typeof PlayerState>;
 
 export const PolicyView = __t.object("PolicyView", {
+  id: __t.u32(),
   allowPresence: __t.bool(),
   allowAggregates: __t.bool(),
   allowContentOnClick: __t.bool(),

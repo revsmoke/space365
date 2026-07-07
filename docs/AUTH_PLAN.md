@@ -81,3 +81,6 @@ Content-on-click additionally requires the admin toggle `allow_content_on_click=
 - [ ] Quest board shows your real mentions (opt-in toggle on)
 - [ ] Click a room → Messages → recent messages render (and are gone on reload — never stored)
 - [ ] Type a message → Send → verify it lands in the real Teams channel as YOU
+- [ ] Click a person → chat panel → send a 1:1 message; verify in Teams
+- [ ] Account chip → set status to Busy → your ring in the world turns orange within a minute
+- [ ] Zone board → Open a portal → meeting appears in your Outlook calendar and as a world portal within ~5 min

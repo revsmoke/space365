@@ -313,6 +313,41 @@ const worldState = table(
 );
 
 // ---------------------------------------------------------------------------
+// Command queue: world actions executed by the ingest service via app-role
+// Graph calls (e.g. create a channel). Admin requests, service executes.
+// ---------------------------------------------------------------------------
+const provisionRequest = table(
+  { name: 'provision_request' },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    kind: t.string(), // 'channel' (later: 'team', 'group')
+    team_id: t.string(),
+    name: t.string(),
+    description: t.string(),
+    requested_by: t.string(), // identity hex, for audit
+    status: t.string().index('btree'), // 'pending' | 'done' | 'failed'
+    result_ref: t.option(t.string()), // created resource id or error summary
+    created_at: t.u64(),
+  }
+);
+
+// Team-visible Planner tasks (zone task board). Titles are visible to the
+// whole team in Planner itself, so member-gating matches source semantics.
+const zoneTask = table(
+  { name: 'zone_task' },
+  {
+    task_id: t.string().primaryKey(),
+    team_id: t.string().index('btree'),
+    plan_title: t.string(),
+    title: t.string(),
+    bucket: t.string(),
+    percent_complete: t.u32(),
+    due: t.option(t.string()),
+    updated_at: t.u64(),
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Config / auth / audit (private; admin views)
 // ---------------------------------------------------------------------------
 const config = table(
@@ -392,6 +427,8 @@ const spacetimedb = schema({
   bookingsAppointment,
   callStatsAgg,
   auditStatsAgg,
+  provisionRequest,
+  zoneTask,
   subscriptionHealth,
   graphCursor,
   playerState,
@@ -780,6 +817,76 @@ export const adminSetScope = spacetimedb.reducer(
       throw new SenderError('kind must be team|channel');
     }
     audit(ctx, 'scope_change', `${kind}:${id}=${enabled}`);
+  }
+);
+
+/** Admin asks the world to build a new channel; the ingest service executes it. */
+export const adminRequestChannel = spacetimedb.reducer(
+  { teamId: t.string(), name: t.string(), description: t.string() },
+  (ctx, { teamId, name, description }) => {
+    requireRole(ctx, ['admin']);
+    if (!ctx.db.team.team_id.find(teamId)) throw new SenderError('unknown team');
+    if (!name.trim()) throw new SenderError('name required');
+    ctx.db.provisionRequest.insert({
+      id: 0n,
+      kind: 'channel',
+      team_id: teamId,
+      name: name.trim(),
+      description,
+      requested_by: ctx.sender.toHexString(),
+      status: 'pending',
+      result_ref: undefined,
+      created_at: nowMicros(ctx),
+    });
+    audit(ctx, 'request_channel', `${teamId}: ${name.trim()}`);
+  }
+);
+
+export const serviceCompleteProvision = spacetimedb.reducer(
+  { requestId: t.u64(), ok: t.bool(), resultRef: t.string() },
+  (ctx, { requestId, ok, resultRef }) => {
+    requireRole(ctx, ['service', 'admin']);
+    const row = ctx.db.provisionRequest.id.find(requestId);
+    if (!row) return;
+    ctx.db.provisionRequest.id.update({ ...row, status: ok ? 'done' : 'failed', result_ref: resultRef });
+    audit(ctx, 'provision_result', `${row.kind} ${row.name}: ${ok ? 'done' : 'failed'}`);
+  }
+);
+
+export const upsertZoneTask = spacetimedb.reducer(
+  {
+    taskId: t.string(),
+    teamId: t.string(),
+    planTitle: t.string(),
+    title: t.string(),
+    bucket: t.string(),
+    percentComplete: t.u32(),
+    due: t.option(t.string()),
+  },
+  (ctx, a) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (!ingestAllowed(ctx)) return;
+    const existing = ctx.db.zoneTask.task_id.find(a.taskId);
+    const row = {
+      task_id: a.taskId,
+      team_id: a.teamId,
+      plan_title: a.planTitle,
+      title: a.title,
+      bucket: a.bucket,
+      percent_complete: a.percentComplete,
+      due: a.due,
+      updated_at: nowMicros(ctx),
+    };
+    if (existing) ctx.db.zoneTask.task_id.update(row);
+    else ctx.db.zoneTask.insert(row);
+  }
+);
+
+export const deleteZoneTask = spacetimedb.reducer(
+  { taskId: t.string() },
+  (ctx, { taskId }) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (ctx.db.zoneTask.task_id.find(taskId)) ctx.db.zoneTask.task_id.delete(taskId);
   }
 );
 
@@ -1462,6 +1569,34 @@ export const adminConfigView = spacetimedb.view(
     const grant = ctx.db.roleGrant.identity.find(ctx.sender);
     if (!grant || grant.role !== 'admin') return [];
     return [...ctx.db.config.iter()];
+  }
+);
+
+/** Pending provisioning commands — visible to the executing service (and admins). */
+export const serviceQueue = spacetimedb.view(
+  { name: 'service_queue', public: true },
+  t.array(provisionRequest.rowType),
+  (ctx) => {
+    const grant = ctx.db.roleGrant.identity.find(ctx.sender);
+    if (!grant || (grant.role !== 'service' && grant.role !== 'admin')) return [];
+    return [...ctx.db.provisionRequest.status.filter('pending')];
+  }
+);
+
+/** Team task boards for the caller's teams only (membership-gated). */
+export const myZoneTasks = spacetimedb.view(
+  { name: 'my_zone_tasks', public: true },
+  t.array(zoneTask.rowType),
+  (ctx) => {
+    const link = ctx.db.identityLink.identity.find(ctx.sender);
+    if (!link) return [];
+    const out: any[] = [];
+    for (const tm of [...ctx.db.teamMember.user_id.filter(link.user_id)]) {
+      for (const task of [...ctx.db.zoneTask.team_id.filter(tm.team_id)]) {
+        out.push(task);
+      }
+    }
+    return out;
   }
 );
 

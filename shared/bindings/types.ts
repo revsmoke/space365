@@ -198,6 +198,9 @@ export type MyPrivateRooms = __Infer<typeof MyPrivateRooms>;
 export const MyQuests = __t.object("MyQuests", {});
 export type MyQuests = __Infer<typeof MyQuests>;
 
+export const MyZoneTasks = __t.object("MyZoneTasks", {});
+export type MyZoneTasks = __Infer<typeof MyZoneTasks>;
+
 export const PlayerState = __t.object("PlayerState", {
   identity: __t.identity(),
   userId: __t.string(),
@@ -243,6 +246,19 @@ export const PresenceView = __t.object("PresenceView", {
 });
 export type PresenceView = __Infer<typeof PresenceView>;
 
+export const ProvisionRequest = __t.object("ProvisionRequest", {
+  id: __t.u64(),
+  kind: __t.string(),
+  teamId: __t.string(),
+  name: __t.string(),
+  description: __t.string(),
+  requestedBy: __t.string(),
+  status: __t.string(),
+  resultRef: __t.option(__t.string()),
+  createdAt: __t.u64(),
+});
+export type ProvisionRequest = __Infer<typeof ProvisionRequest>;
+
 export const Quest = __t.object("Quest", {
   questId: __t.string(),
   userId: __t.string(),
@@ -283,6 +299,9 @@ export const RoomView = __t.object("RoomView", {
   isPrivate: __t.bool(),
 });
 export type RoomView = __Infer<typeof RoomView>;
+
+export const ServiceQueue = __t.object("ServiceQueue", {});
+export type ServiceQueue = __Infer<typeof ServiceQueue>;
 
 export const StaffPresence = __t.object("StaffPresence", {});
 export type StaffPresence = __Infer<typeof StaffPresence>;
@@ -379,6 +398,18 @@ export type WorldState = __Infer<typeof WorldState>;
 
 export const WorldZones = __t.object("WorldZones", {});
 export type WorldZones = __Infer<typeof WorldZones>;
+
+export const ZoneTask = __t.object("ZoneTask", {
+  taskId: __t.string(),
+  teamId: __t.string(),
+  planTitle: __t.string(),
+  title: __t.string(),
+  bucket: __t.string(),
+  percentComplete: __t.u32(),
+  due: __t.option(__t.string()),
+  updatedAt: __t.u64(),
+});
+export type ZoneTask = __Infer<typeof ZoneTask>;
 
 export const ZoneView = __t.object("ZoneView", {
   teamId: __t.string(),

@@ -34,11 +34,13 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AdminRequestChannelReducer from "./admin_request_channel_reducer";
 import AdminSeedSchedulesReducer from "./admin_seed_schedules_reducer";
 import AdminSetScopeReducer from "./admin_set_scope_reducer";
 import AdminUpdateConfigReducer from "./admin_update_config_reducer";
 import CreateOrUpdateQuestReducer from "./create_or_update_quest_reducer";
 import DebugLinkSelfReducer from "./debug_link_self_reducer";
+import DeleteZoneTaskReducer from "./delete_zone_task_reducer";
 import DismissQuestReducer from "./dismiss_quest_reducer";
 import GrantRoleReducer from "./grant_role_reducer";
 import IngestAuditStatsReducer from "./ingest_audit_stats_reducer";
@@ -49,6 +51,7 @@ import LinkIdentityReducer from "./link_identity_reducer";
 import MovePlayerReducer from "./move_player_reducer";
 import PlaceDecorationReducer from "./place_decoration_reducer";
 import RemoveDecorationReducer from "./remove_decoration_reducer";
+import ServiceCompleteProvisionReducer from "./service_complete_provision_reducer";
 import SetEmoteReducer from "./set_emote_reducer";
 import SetGraphCursorReducer from "./set_graph_cursor_reducer";
 import SetPersonalOptInReducer from "./set_personal_opt_in_reducer";
@@ -60,6 +63,7 @@ import UpsertChannelReducer from "./upsert_channel_reducer";
 import UpsertMeetingReducer from "./upsert_meeting_reducer";
 import UpsertTeamReducer from "./upsert_team_reducer";
 import UpsertUserReducer from "./upsert_user_reducer";
+import UpsertZoneTaskReducer from "./upsert_zone_task_reducer";
 
 // Import all procedure arg schemas
 
@@ -78,9 +82,11 @@ import EvtRoomBurstRow from "./evt_room_burst_table";
 import MeetingPortalsRow from "./meeting_portals_table";
 import MyPrivateRoomsRow from "./my_private_rooms_table";
 import MyQuestsRow from "./my_quests_table";
+import MyZoneTasksRow from "./my_zone_tasks_table";
 import PlayerStateRow from "./player_state_table";
 import PresencePublicRow from "./presence_public_table";
 import RoomActivityRow from "./room_activity_table";
+import ServiceQueueRow from "./service_queue_table";
 import StaffPresenceRow from "./staff_presence_table";
 import UserRow from "./user_table";
 import WorldPolicyRow from "./world_policy_table";
@@ -262,6 +268,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyQuestsRow),
+  myZoneTasks: __table({
+    name: 'my_zone_tasks',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyZoneTasksRow),
   presencePublic: __table({
     name: 'presence_public',
     indexes: [
@@ -276,6 +289,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, RoomActivityRow),
+  serviceQueue: __table({
+    name: 'service_queue',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ServiceQueueRow),
   staffPresence: __table({
     name: 'staff_presence',
     indexes: [
@@ -308,11 +328,13 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("admin_request_channel", AdminRequestChannelReducer),
   __reducerSchema("admin_seed_schedules", AdminSeedSchedulesReducer),
   __reducerSchema("admin_set_scope", AdminSetScopeReducer),
   __reducerSchema("admin_update_config", AdminUpdateConfigReducer),
   __reducerSchema("create_or_update_quest", CreateOrUpdateQuestReducer),
   __reducerSchema("debug_link_self", DebugLinkSelfReducer),
+  __reducerSchema("delete_zone_task", DeleteZoneTaskReducer),
   __reducerSchema("dismiss_quest", DismissQuestReducer),
   __reducerSchema("grant_role", GrantRoleReducer),
   __reducerSchema("ingest_audit_stats", IngestAuditStatsReducer),
@@ -323,6 +345,7 @@ const reducersSchema = __reducers(
   __reducerSchema("move_player", MovePlayerReducer),
   __reducerSchema("place_decoration", PlaceDecorationReducer),
   __reducerSchema("remove_decoration", RemoveDecorationReducer),
+  __reducerSchema("service_complete_provision", ServiceCompleteProvisionReducer),
   __reducerSchema("set_emote", SetEmoteReducer),
   __reducerSchema("set_graph_cursor", SetGraphCursorReducer),
   __reducerSchema("set_personal_opt_in", SetPersonalOptInReducer),
@@ -334,6 +357,7 @@ const reducersSchema = __reducers(
   __reducerSchema("upsert_meeting", UpsertMeetingReducer),
   __reducerSchema("upsert_team", UpsertTeamReducer),
   __reducerSchema("upsert_user", UpsertUserReducer),
+  __reducerSchema("upsert_zone_task", UpsertZoneTaskReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

@@ -30,6 +30,10 @@ export class WorldApp {
   onRoomSelected: ((roomId: number | null, via: 'click' | 'approach') => void) | null = null;
   onPortalSelected: ((portal: MeetingPortal) => void) | null = null;
   onTowerSelected: (() => void) | null = null;
+  /** clicking a staff figure or a linked player avatar (person → chat) */
+  onPersonSelected: ((person: { oid: string; displayName: string }) => void) | null = null;
+  /** clicking a zone platform/label (only when nothing else was hit) */
+  onZoneSelected: ((zoneId: number) => void) | null = null;
   /** decorate mode: ground click → place request { x, z, zoneId } */
   onGroundClick: ((x: number, z: number, zoneId: number) => void) | null = null;
   /** decorate mode: clicking an existing decoration */
@@ -184,15 +188,45 @@ export class WorldApp {
       this.onTowerSelected?.();
       return 'tower';
     }
+    // people: player avatars first (they walk), then ambient staff figures.
+    // Unlinked players resolve to null — fall through gracefully.
+    const avatarHits = this.#raycaster.intersectObjects(this.#avatarLayer.pickMeshes, false);
+    if (avatarHits.length > 0) {
+      const person = this.#avatarLayer.personFor(avatarHits[0].object);
+      if (person) {
+        this.onPersonSelected?.(person);
+        return 'person';
+      }
+    }
+    const staffHits = this.#raycaster.intersectObject(this.#staffLayer.pickMesh, false);
+    const staffHit = staffHits.find(h => h.instanceId !== undefined);
+    if (staffHit && staffHit.instanceId !== undefined) {
+      const entry = this.#staffLayer.entryAt(staffHit.instanceId);
+      if (entry) {
+        this.onPersonSelected?.({ oid: entry.userId, displayName: entry.name });
+        return 'person';
+      }
+    }
     const mesh = this.#roomLayer.mesh;
-    if (!mesh) return 'none';
-    const hits = this.#raycaster.intersectObject(mesh, false);
-    const hit = hits.find(h => h.instanceId !== undefined);
-    if (hit && hit.instanceId !== undefined) {
-      const room = this.#roomLayer.roomAt(hit.instanceId);
-      if (room) {
-        this.onRoomSelected?.(room.roomId, 'click');
-        return 'room';
+    if (mesh) {
+      const hits = this.#raycaster.intersectObject(mesh, false);
+      const hit = hits.find(h => h.instanceId !== undefined);
+      if (hit && hit.instanceId !== undefined) {
+        const room = this.#roomLayer.roomAt(hit.instanceId);
+        if (room) {
+          this.onRoomSelected?.(room.roomId, 'click');
+          return 'room';
+        }
+      }
+    }
+    // zone platform/label — lowest priority: only when nothing above was hit
+    const zoneHits = this.#raycaster.intersectObjects(this.#zoneLayer.pickObjects, false);
+    const zoneHit = zoneHits[0];
+    if (zoneHit) {
+      const zone = this.#zoneLayer.zoneForHit(zoneHit.object, zoneHit.instanceId);
+      if (zone) {
+        this.onZoneSelected?.(zone.zoneId);
+        return 'zone';
       }
     }
     return 'none';

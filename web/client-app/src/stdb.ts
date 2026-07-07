@@ -18,6 +18,7 @@ import WorldStateRow from '@bindings/world_state_table';
 import WorldPolicyRow from '@bindings/world_policy_table';
 import PresencePublicRow from '@bindings/presence_public_table';
 import MyQuestsRow from '@bindings/my_quests_table';
+import MyZoneTasksRow from '@bindings/my_zone_tasks_table';
 import MeetingPortalsRow from '@bindings/meeting_portals_table';
 import EvtRoomBurstRow from '@bindings/evt_room_burst_table';
 import StaffPresenceRow from '@bindings/staff_presence_table';
@@ -43,6 +44,7 @@ export type WorldStateRowT = Infer<typeof WorldStateRow>;
 export type WorldPolicy = Infer<typeof WorldPolicyRow>;
 export type PresencePublic = Infer<typeof PresencePublicRow>;
 export type MyQuest = Infer<typeof MyQuestsRow>;
+export type MyZoneTask = Infer<typeof MyZoneTasksRow>;
 export type MeetingPortal = Infer<typeof MeetingPortalsRow>;
 export type RoomBurst = Infer<typeof EvtRoomBurstRow>;
 export type StaffPresence = Infer<typeof StaffPresenceRow>;
@@ -69,6 +71,7 @@ export type StoreEvent =
   | 'policy'
   | 'presence'
   | 'quests'
+  | 'zoneTasks'
   | 'portals'
   | 'staff'
   | 'burst'
@@ -118,6 +121,8 @@ class Stdb {
   policy: WorldPolicy | null = null;
   presence = new Map<string, PresencePublic>();
   quests = new Map<string, MyQuest>();
+  /** task_id -> Planner task visible to me (my_zone_tasks; membership-gated) */
+  zoneTasks = new Map<string, MyZoneTask>();
   portals: MeetingPortal[] = [];
   /** user_id -> ambient staff presence (NPC avatars) */
   staff = new Map<string, StaffPresence>();
@@ -270,6 +275,28 @@ class Stdb {
           .onApplied(() => this.#emit('activity'))
           .onError(ctx => console.warn('[stdb] room_activity subscription error', ctx))
           .subscribe([tables.roomActivity]);
+        // my_zone_tasks is membership-gated (empty unless signed in + linked).
+        // Isolated so a view error never affects the world subscription.
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => {
+            this.zoneTasks.clear();
+            for (const t of conn.db.myZoneTasks.iter()) this.zoneTasks.set(t.taskId, t);
+            this.#emit('zoneTasks');
+          })
+          .onError(ctx => console.warn('[stdb] my_zone_tasks subscription error', ctx))
+          .subscribe([tables.myZoneTasks]);
+        // my_quests is likewise identity-gated; callbacks were registered but it
+        // was never subscribed — the quest board stayed empty without this.
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => {
+            this.quests.clear();
+            for (const q of conn.db.myQuests.iter()) this.quests.set(q.questId, q);
+            this.#emit('quests');
+          })
+          .onError(ctx => console.warn('[stdb] my_quests subscription error', ctx))
+          .subscribe([tables.myQuests]);
         // Admin views (all return [] for non-admin identities). Isolated so an
         // authorization change or view error never affects the world subscription.
         conn
@@ -494,14 +521,29 @@ class Stdb {
       this.#emit('quests');
     });
 
-    conn.db.meetingPortals.onInsert((_ctx, row) => {
-      this.portals = [...this.portals, row];
-      this.#emit('portals');
+    conn.db.myZoneTasks.onInsert((_ctx, row) => {
+      this.zoneTasks.set(row.taskId, row);
+      this.#emit('zoneTasks');
     });
-    conn.db.meetingPortals.onDelete((_ctx, row) => {
-      this.portals = this.portals.filter(p => p.eventId !== row.eventId);
-      this.#emit('portals');
+    conn.db.myZoneTasks.onUpdate?.((_ctx, _old, row) => {
+      this.zoneTasks.set(row.taskId, row);
+      this.#emit('zoneTasks');
     });
+    conn.db.myZoneTasks.onDelete((_ctx, row) => {
+      this.zoneTasks.delete(row.taskId);
+      this.#emit('zoneTasks');
+    });
+
+    // Mirror the SDK cache rather than accumulating: during initial sync the
+    // snapshot AND per-row onInsert both fire, which doubled an append-based
+    // array (the "duplicate portals" bug).
+    const syncPortals = () => {
+      this.portals = [...conn.db.meetingPortals.iter()];
+      this.#emit('portals');
+    };
+    conn.db.meetingPortals.onInsert(syncPortals);
+    conn.db.meetingPortals.onUpdate?.(syncPortals);
+    conn.db.meetingPortals.onDelete(syncPortals);
 
     // Event table: insert-only, transient burst signal.
     conn.db.evtRoomBurst.onInsert((_ctx, row) => {
@@ -710,6 +752,22 @@ class Stdb {
       await this.conn.reducers.adminSetScope({ kind, id, enabled });
       return null;
     } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /**
+   * Ask the world to build a new channel (admin-only; the ingest worker
+   * executes it). Resolves to an error message (SenderError text is already
+   * human-readable) or null on success.
+   */
+  async adminRequestChannel(teamId: string, name: string, description: string): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.adminRequestChannel({ teamId, name, description });
+      return null;
+    } catch (err) {
+      if (err instanceof SenderError) return err.message;
       return err instanceof Error ? err.message : String(err);
     }
   }

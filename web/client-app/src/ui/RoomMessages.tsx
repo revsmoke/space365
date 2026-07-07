@@ -58,6 +58,12 @@ export function RoomMessages({ teamId, channelId }: { teamId: string; channelId:
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  // thread reply composer (one open at a time)
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [replySending, setReplySending] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [repliedTo, setRepliedTo] = useState<string | null>(null);
 
   const signedIn = stdb.signedInConnection;
   const allowed = stdb.allowContentOnClick;
@@ -149,6 +155,44 @@ export function RoomMessages({ teamId, channelId }: { teamId: string; channelId:
     }
   };
 
+  // POST a reply into the message's thread (ChannelMessage.Send, same scope
+  // as the channel composer). Reply counts are NOT shown: the Graph list
+  // endpoint doesn't include them and fetching /replies per message is an
+  // extra call each — not cheap, skipped by design.
+  const sendReply = async (messageId: string) => {
+    const content = replyDraft.trim();
+    if (!content) return;
+    setReplySending(true);
+    setReplyError(null);
+    try {
+      const token = await getGraphToken(['ChannelMessage.Send']);
+      const res = await fetch(
+        `${GRAPH}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(
+          channelId
+        )}/messages/${encodeURIComponent(messageId)}/replies`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: { contentType: 'text', content } }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        setReplyError(`Reply failed (${res.status}): ${body.slice(0, 140)}`);
+        return;
+      }
+      setReplyDraft('');
+      setReplyTo(null);
+      setRepliedTo(messageId);
+    } catch (err) {
+      setReplyError(
+        consentish(err) ? 'Replying needs your consent — try again and accept the popup.' : String(err)
+      );
+    } finally {
+      setReplySending(false);
+    }
+  };
+
   return (
     <div className="room-messages">
       <button
@@ -179,13 +223,63 @@ export function RoomMessages({ teamId, channelId }: { teamId: string; channelId:
           )}
           {messages !== null && messages.length > 0 && (
             <div className="messages-list">
-              {messages.map(m => (
-                <div key={m.id} className="message-row">
-                  <span className="message-sender">{m.sender}</span>
-                  <span className="dim message-time">{m.at}</span>
-                  <div className="message-text">{m.text}</div>
-                </div>
-              ))}
+              {messages.map(m => {
+                // optimistic local echoes have no Graph id → no thread to reply to
+                const replyable = !m.id.startsWith('local-');
+                return (
+                  <div key={m.id} className="message-row">
+                    <span className="message-sender">{m.sender}</span>
+                    <span className="dim message-time">{m.at}</span>
+                    <div className="message-text">{m.text}</div>
+                    {replyable && (
+                      <div className="message-actions">
+                        <button
+                          className="ghost-btn reply-btn"
+                          onClick={() => {
+                            setReplyError(null);
+                            setReplyDraft('');
+                            setReplyTo(replyTo === m.id ? null : m.id);
+                          }}
+                        >
+                          ↩ Reply
+                        </button>
+                        {repliedTo === m.id && replyTo !== m.id && (
+                          <span className="dim reply-sent">Reply sent to the thread ✓</span>
+                        )}
+                      </div>
+                    )}
+                    {replyTo === m.id && (
+                      <div className="reply-composer">
+                        <div className="composer">
+                          <textarea
+                            className="composer-input"
+                            placeholder="Reply in this thread…"
+                            rows={2}
+                            value={replyDraft}
+                            onChange={e => setReplyDraft(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                void sendReply(m.id);
+                              }
+                              if (e.key === 'Escape') setReplyTo(null);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            className="primary-btn"
+                            disabled={replySending || !replyDraft.trim()}
+                            onClick={() => void sendReply(m.id)}
+                          >
+                            {replySending ? '…' : 'Reply'}
+                          </button>
+                        </div>
+                        {replyError && <div className="error-box">{replyError}</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="composer">

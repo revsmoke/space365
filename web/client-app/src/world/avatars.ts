@@ -12,6 +12,9 @@ interface AvatarView {
   emote: string | null;
   target: THREE.Vector3;
   targetHeading: number;
+  /** linked M365 user id ('' when the player is anonymous/unlinked) */
+  userId: string;
+  displayName: string;
 }
 
 function avatarColor(seed: number): THREE.Color {
@@ -25,11 +28,28 @@ function avatarColor(seed: number): THREE.Color {
 export class AvatarLayer {
   readonly group = new THREE.Group();
   #views = new Map<string, AvatarView>();
+  /** body mesh → view, for click picking */
+  #viewByMesh = new Map<THREE.Object3D, AvatarView>();
   #capsuleGeo = new THREE.CapsuleGeometry(0.45, 0.9, 4, 12);
   #headGeo = new THREE.SphereGeometry(0.32, 12, 10);
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
+  }
+
+  /** Pickable body meshes (person picking → chat). */
+  get pickMeshes(): THREE.Object3D[] {
+    return [...this.#viewByMesh.keys()];
+  }
+
+  /**
+   * Resolve a picked body mesh to the player's linked person.
+   * Returns null for unlinked/anonymous players (skip gracefully).
+   */
+  personFor(object: THREE.Object3D): { oid: string; displayName: string } | null {
+    const view = this.#viewByMesh.get(object);
+    if (!view || !view.userId) return null;
+    return { oid: view.userId, displayName: view.displayName };
   }
 
   /** Reconcile against the full set of online remote players. */
@@ -46,6 +66,8 @@ export class AvatarLayer {
       view.target.set(p.x, p.y, p.z);
       view.targetHeading = p.heading;
       const user = p.userId ? users.get(p.userId) : undefined;
+      view.userId = p.userId;
+      view.displayName = user?.displayName ?? 'Visitor';
       retext(view.namePlate, user?.displayName ?? 'Visitor');
       const seed = user?.avatarSeed ?? 7;
       (view.body.material as THREE.MeshStandardMaterial).color.copy(avatarColor(seed));
@@ -73,7 +95,19 @@ export class AvatarLayer {
     group.add(namePlate);
     group.position.set(p.x, p.y, p.z);
     this.group.add(group);
-    return { group, body, namePlate, emoteSprite: null, emote: null, target: new THREE.Vector3(p.x, p.y, p.z), targetHeading: p.heading };
+    const view: AvatarView = {
+      group,
+      body,
+      namePlate,
+      emoteSprite: null,
+      emote: null,
+      target: new THREE.Vector3(p.x, p.y, p.z),
+      targetHeading: p.heading,
+      userId: p.userId,
+      displayName: 'Visitor',
+    };
+    this.#viewByMesh.set(body, view);
+    return view;
   }
 
   #setEmote(view: AvatarView, emote: string | null): void {
@@ -93,6 +127,7 @@ export class AvatarLayer {
   }
 
   #disposeView(view: AvatarView): void {
+    this.#viewByMesh.delete(view.body);
     this.group.remove(view.group);
     disposeSprite(view.namePlate);
     if (view.emoteSprite) disposeSprite(view.emoteSprite);

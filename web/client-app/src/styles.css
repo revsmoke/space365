@@ -1328,3 +1328,194 @@ body {
   text-align: center;
   font-size: 16px;
 }
+
+/* ---- 1:1 chat panel ---- */
+.chat-panel {
+  bottom: 52px;
+  right: 14px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 25; /* above the room panel if both are open */
+}
+
+.chat-availability {
+  align-self: flex-start;
+}
+
+.chat-gate {
+  font-size: 13px;
+  padding: 10px 2px;
+}
+
+.chat-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.chat-row.chat-mine {
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+}
+
+.chat-mine .chat-bubble {
+  background: rgba(88, 160, 255, 0.16);
+}
+
+.chat-meta {
+  font-size: 10.5px;
+  margin-bottom: 2px;
+}
+
+/* ---- thread replies (room messages) ---- */
+.message-actions {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reply-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.reply-sent {
+  font-size: 11px;
+}
+
+.reply-composer {
+  margin-top: 6px;
+}
+
+/* ---- zone board ---- */
+.zone-board {
+  top: 68px;
+  right: 14px;
+  width: 320px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.zone-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 12px 0 6px;
+}
+
+.zone-empty {
+  font-size: 12.5px;
+  padding: 2px 0 4px;
+}
+
+.zone-note {
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.zone-portal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.zone-portal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.zone-portal-time {
+  white-space: nowrap;
+}
+
+.zone-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.zone-task-row {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 9px;
+  padding: 7px 9px;
+}
+
+.zone-task-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.zone-task-done {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.zone-task-meta {
+  font-size: 11px;
+  margin: 2px 0 5px;
+}
+
+.zone-task-bucket {
+  font-weight: 650;
+}
+
+.zone-task-progress {
+  height: 5px;
+  margin-bottom: 0;
+}
+
+.zone-request {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.zone-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+  padding: 7px 10px;
+  outline: none;
+}
+
+.zone-input:focus {
+  border-color: var(--accent);
+}
+
+.zone-toast {
+  background: rgba(88, 201, 255, 0.14);
+  color: #58c9ff;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+}

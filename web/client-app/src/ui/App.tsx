@@ -15,6 +15,8 @@ import { TowerPanel } from './TowerPanel';
 import { DecorBar } from './DecorBar';
 import { Onboarding, shouldOnboard } from './Onboarding';
 import { EmotePopup } from './EmotePopup';
+import { ChatPanel, type ChatTarget } from './ChatPanel';
+import { ZoneBoard } from './ZoneBoard';
 
 /** Minimal hash routing: '#/admin' → admin console, anything else → world UI. */
 function useHashRoute(): string {
@@ -30,6 +32,8 @@ function useHashRoute(): string {
 export function App({ world }: { world: WorldApp }) {
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [selectedPortal, setSelectedPortal] = useState<MeetingPortal | null>(null);
+  const [selectedZone, setSelectedZone] = useState<number | null>(null);
+  const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null);
   const [towerOpen, setTowerOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -39,16 +43,29 @@ export function App({ world }: { world: WorldApp }) {
   const route = useHashRoute();
 
   useEffect(() => {
-    world.onRoomSelected = (roomId, _via) => setSelectedRoom(roomId);
+    world.onRoomSelected = (roomId, via) => {
+      setSelectedRoom(roomId);
+      if (via === 'click') setSelectedZone(null); // room click beats zone board
+    };
     world.onPortalSelected = portal => {
       setSelectedPortal(portal);
       setSelectedRoom(null);
+      setSelectedZone(null);
     };
     world.onTowerSelected = () => setTowerOpen(true);
+    world.onZoneSelected = zoneId => {
+      setSelectedZone(zoneId);
+      setSelectedRoom(null);
+      setSelectedPortal(null);
+    };
+    // kiosk: no chat anywhere — person clicks are simply inert
+    world.onPersonSelected = KIOSK ? null : person => setChatTarget(person);
     return () => {
       world.onRoomSelected = null;
       world.onPortalSelected = null;
       world.onTowerSelected = null;
+      world.onZoneSelected = null;
+      world.onPersonSelected = null;
     };
   }, [world]);
 
@@ -62,11 +79,22 @@ export function App({ world }: { world: WorldApp }) {
 
   return (
     <>
-      <TopBar world={world} onOpenPrivacy={() => setPrivacyOpen(true)} onOpenLegend={() => setLegendOpen(true)} />
+      <TopBar
+        world={world}
+        onOpenPrivacy={() => setPrivacyOpen(true)}
+        onOpenLegend={() => setLegendOpen(true)}
+        onChatUser={KIOSK ? undefined : person => setChatTarget(person)}
+      />
       <ActivityFeed world={world} />
       {selectedRoom !== null && <RoomPanel roomId={selectedRoom} onClose={() => setSelectedRoom(null)} />}
       {selectedPortal !== null && (
         <PortalCard portal={selectedPortal} onClose={() => setSelectedPortal(null)} />
+      )}
+      {selectedZone !== null && selectedRoom === null && selectedPortal === null && (
+        <ZoneBoard zoneId={selectedZone} onClose={() => setSelectedZone(null)} />
+      )}
+      {!KIOSK && chatTarget !== null && (
+        <ChatPanel target={chatTarget} onClose={() => setChatTarget(null)} />
       )}
       {towerOpen && <TowerPanel onClose={() => setTowerOpen(false)} />}
       {!KIOSK && (

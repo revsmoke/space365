@@ -69,6 +69,16 @@ export class StaffLayer {
     scene.add(this.group);
   }
 
+  /** Pickable instanced body mesh (instanceId → entryAt). */
+  get pickMesh(): THREE.InstancedMesh {
+    return this.#bodies;
+  }
+
+  /** Staff entry for a picked body instance (person picking → chat). */
+  entryAt(index: number): StaffEntry | undefined {
+    return this.#entries[index];
+  }
+
   /** Rebuild instances from the staff_presence view (cheap at org scale). */
   sync(staff: Map<string, StaffPresence>): void {
     this.#entries = [];

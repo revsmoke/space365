@@ -5,12 +5,9 @@ import { useStore } from './hooks';
 import { account, signIn, signOut } from '../auth';
 import type { WorldApp } from '../world';
 
-interface SearchHit {
-  kind: 'zone' | 'room';
-  id: number;
-  name: string;
-  sub: string;
-}
+type SearchHit =
+  | { kind: 'zone' | 'room'; id: number; name: string; sub: string }
+  | { kind: 'user'; userId: string; name: string; sub: string };
 
 /** Sign-in button / account chip. Reloading after auth changes is the v1 way
  *  to swap the SpacetimeDB connection identity. */
@@ -60,14 +57,18 @@ export function TopBar({
   world,
   onOpenPrivacy,
   onOpenLegend,
+  onChatUser,
 }: {
   world: WorldApp;
   onOpenPrivacy: () => void;
   onOpenLegend: () => void;
+  /** open a 1:1 chat with a person found via search (absent in kiosk) */
+  onChatUser?: (person: { oid: string; displayName: string }) => void;
 }) {
   useStore('status');
   useStore('zones');
   useStore('rooms');
+  useStore('users');
   useStore('adminConfig');
   const [query, setQuery] = useState('');
 
@@ -83,12 +84,24 @@ export function TopBar({
         out.push({ kind: 'room', id: r.roomId, name: r.name, sub: stdb.zoneName(Math.floor(r.roomId / 100)) });
       }
     }
+    if (onChatUser) {
+      for (const u of stdb.users.values()) {
+        if (u.isActive && u.displayName.toLowerCase().includes(q)) {
+          out.push({ kind: 'user', userId: u.userId, name: u.displayName, sub: u.title || 'person' });
+        }
+      }
+    }
     return out.slice(0, 8);
-  }, [query, stdb.version('rooms'), stdb.version('zones')]);
+  }, [query, onChatUser, stdb.version('rooms'), stdb.version('zones'), stdb.version('users')]);
 
   const travel = (hit: SearchHit) => {
-    if (hit.kind === 'zone') world.fastTravelToZone(hit.id);
-    else world.fastTravelToRoom(hit.id);
+    if (hit.kind === 'user') {
+      onChatUser?.({ oid: hit.userId, displayName: hit.name });
+    } else if (hit.kind === 'zone') {
+      world.fastTravelToZone(hit.id);
+    } else {
+      world.fastTravelToRoom(hit.id);
+    }
     setQuery('');
   };
 
@@ -113,8 +126,14 @@ export function TopBar({
           {hits.length > 0 && (
             <div className="search-results">
               {hits.map(h => (
-                <button key={`${h.kind}-${h.id}`} className="search-hit" onClick={() => travel(h)}>
-                  <span>{h.kind === 'zone' ? '⬢' : '▣'} {h.name}</span>
+                <button
+                  key={h.kind === 'user' ? `user-${h.userId}` : `${h.kind}-${h.id}`}
+                  className="search-hit"
+                  onClick={() => travel(h)}
+                >
+                  <span>
+                    {h.kind === 'user' ? `💬 Chat with ${h.name}` : `${h.kind === 'zone' ? '⬢' : '▣'} ${h.name}`}
+                  </span>
                   <span className="dim">{h.sub}</span>
                 </button>
               ))}

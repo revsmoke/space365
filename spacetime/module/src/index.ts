@@ -496,6 +496,7 @@ export const init = spacetimedb.init((ctx) => {
   // Config defaults (admin-tunable at runtime)
   const defaults: [string, string][] = [
     ['dev_mode', 'true'],
+    ['tenant_id', ''], // Entra tenant id; when set, signed-in connections must match
     ['safe_mode', 'false'],
     ['ingest_paused', 'false'],
     ['allow_presence', 'true'],
@@ -525,9 +526,51 @@ export const init = spacetimedb.init((ctx) => {
 });
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
+  const devMode = getConfig(ctx, 'dev_mode', 'false') === 'true';
+  const auth: any = (ctx as any).senderAuth;
+  const claims: any = auth?.hasJWT && auth.jwt ? auth.jwt.fullPayload : null;
+  const tid: string | undefined = claims?.tid;
+  const oid: string | undefined = claims?.oid;
+
+  if (tid && oid) {
+    // Entra-issued token: enforce tenant, then auto-link the verified identity.
+    const expected = getConfig(ctx, 'tenant_id', '');
+    if (expected && tid !== expected) throw new SenderError('wrong tenant');
+    const link = ctx.db.identityLink.identity.find(ctx.sender);
+    if (link) {
+      if (link.user_id !== oid) {
+        ctx.db.identityLink.identity.update({ ...link, user_id: oid, linked_at: nowMicros(ctx) });
+      }
+    } else {
+      ctx.db.identityLink.insert({ identity: ctx.sender, user_id: oid, linked_at: nowMicros(ctx) });
+    }
+    // Directory sync usually created the user row already; if not, seed a
+    // minimal one from token claims so quests/decorations work immediately.
+    if (!ctx.db.user.user_id.find(oid)) {
+      let seed = 0;
+      for (let i = 0; i < oid.length; i++) seed = (seed * 31 + oid.charCodeAt(i)) >>> 0;
+      ctx.db.user.insert({
+        user_id: oid,
+        display_name: (claims?.name as string) ?? 'Signed-in user',
+        dept: '',
+        title: '',
+        avatar_seed: seed,
+        opt_in_personal: false,
+        is_active: true,
+      });
+    }
+  } else if (!devMode) {
+    // No verified tenant claims: only service/admin/kiosk identities (granted
+    // roles) may connect when dev mode is off.
+    if (!ctx.db.roleGrant.identity.find(ctx.sender)) {
+      throw new SenderError('sign-in required');
+    }
+  }
+
   const existing = ctx.db.playerState.identity.find(ctx.sender);
   if (existing) {
-    ctx.db.playerState.identity.update({ ...existing, online: true, updated_at: nowMicros(ctx) });
+    const userId = ctx.db.identityLink.identity.find(ctx.sender)?.user_id ?? existing.user_id;
+    ctx.db.playerState.identity.update({ ...existing, user_id: userId, online: true, updated_at: nowMicros(ctx) });
   }
 });
 

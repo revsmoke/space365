@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { stdb, microsToDate, type MyZoneTask } from '../stdb';
+import { KIOSK } from '../config';
+import { consentish } from '../graph_chat';
+import { createPortalMeeting } from '../graph_me';
 import { useStore } from './hooks';
 
 /**
@@ -28,6 +31,157 @@ function taskOrder(a: MyZoneTask, b: MyZoneTask): number {
   const dueB = b.due ?? '9999';
   if (dueA !== dueB) return dueA < dueB ? -1 : 1;
   return a.title.localeCompare(b.title);
+}
+
+/** Next half-hour boundary as {date: 'YYYY-MM-DD', time: 'HH:MM'} local. */
+export function nextHalfHour(now = new Date()): { date: string; time: string } {
+  const d = new Date(now);
+  d.setSeconds(0, 0);
+  d.setMinutes(d.getMinutes() + 30 - (d.getMinutes() % 30));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
+/**
+ * "Open a portal" — create a real calendar meeting (Calendars.ReadWrite,
+ * delegated; consented on first use). The meetings surface polls every ~5m,
+ * and the ingest maps portals to the ORGANIZER's team zone — which may not be
+ * the zone whose board this is, hence the helper text.
+ */
+function OpenPortalForm() {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState(() => nextHalfHour().date);
+  const [startTime, setStartTime] = useState(() => nextHalfHour().time);
+  const [duration, setDuration] = useState(30);
+  const [teamsMeeting, setTeamsMeeting] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [needsConsent, setNeedsConsent] = useState(false);
+  const [toast, setToast] = useState(false);
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(false), 8000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const submit = async () => {
+    if (!title.trim() || !startDate || !startTime || busy || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    setNeedsConsent(false);
+    try {
+      const start = new Date(`${startDate}T${startTime}:00`);
+      const end = new Date(start.getTime() + duration * 60_000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+      await createPortalMeeting({
+        subject: title.trim(),
+        startDateTime: fmt(start),
+        endDateTime: fmt(end),
+        teamsMeeting,
+      });
+      setTitle('');
+      setOpen(false);
+      setToast(true);
+    } catch (err) {
+      if (consentish(err)) {
+        setNeedsConsent(true);
+        setError('Creating a meeting needs consent for calendar access.');
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="portal-create">
+      {!open && (
+        <button className="ghost-btn portal-create-toggle" onClick={() => setOpen(true)}>
+          ➕ Open a portal
+        </button>
+      )}
+      {open && (
+        <div className="portal-create-form">
+          <input
+            className="zone-input"
+            placeholder="Meeting title"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+          />
+          <div className="portal-create-row">
+            <input
+              className="zone-input"
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+            />
+            <input
+              className="zone-input"
+              type="time"
+              step={900}
+              value={startTime}
+              onChange={e => setStartTime(e.target.value)}
+            />
+            <select
+              className="zone-input portal-create-duration"
+              value={duration}
+              onChange={e => setDuration(Number(e.target.value))}
+            >
+              <option value={30}>30 min</option>
+              <option value={60}>60 min</option>
+            </select>
+          </div>
+          <label className="portal-create-check">
+            <input
+              type="checkbox"
+              checked={teamsMeeting}
+              onChange={e => setTeamsMeeting(e.target.checked)}
+            />{' '}
+            Teams meeting
+          </label>
+          <div className="dim zone-note">Appears in your team's zone.</div>
+          <div className="portal-create-row">
+            <button
+              className="primary-btn"
+              disabled={busy || !title.trim()}
+              onClick={() => void submit()}
+            >
+              {busy ? '…' : 'Schedule'}
+            </button>
+            <button className="ghost-btn" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+          {error && (
+            <div className="error-box">
+              {error}
+              {needsConsent && (
+                <button className="primary-btn messages-grant" onClick={() => void submit()}>
+                  Grant access
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {toast && (
+        <div className="zone-toast">
+          Portal scheduled — it will appear in the world within a few minutes.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RequestChannelForm({ teamId }: { teamId: string }) {
@@ -160,6 +314,7 @@ export function ZoneBoard({
         </div>
       )}
       <div className="dim zone-note">Subjects and attendees are never shown in the world.</div>
+      {!KIOSK && stdb.signedInConnection && <OpenPortalForm />}
 
       <div className="zone-section-title">Team tasks</div>
       {tasks.length === 0 && (

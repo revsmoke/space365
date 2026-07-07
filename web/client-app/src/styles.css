@@ -1224,6 +1224,46 @@ body {
   white-space: nowrap;
 }
 
+/* ---- set-my-status dropdown (account chip) ---- */
+.presence-set {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.presence-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.presence-select {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 90px;
+}
+
+.presence-select:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.presence-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  z-index: 40;
+  margin-bottom: 0;
+}
+
 /* ---- room messages ---- */
 .room-messages {
   margin-top: 12px;
@@ -1430,6 +1470,45 @@ body {
 
 .zone-stat-link:hover {
   color: var(--accent);
+}
+
+/* ---- open a portal (zone board) ---- */
+.portal-create {
+  margin-top: 8px;
+}
+
+.portal-create-toggle {
+  font-size: 12px;
+}
+
+.portal-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.portal-create-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.portal-create-row .zone-input {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.portal-create-duration {
+  flex: 0 0 auto;
+}
+
+.portal-create-check {
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ---- library panel ---- */

@@ -1,13 +1,104 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { stdb } from '../stdb';
 import { KIOSK } from '../config';
 import { useStore } from './hooks';
 import { account, signIn, signOut } from '../auth';
+import { consentish } from '../graph_chat';
+import { setMyPresence, clearMyPresence, type PreferredAvailability } from '../graph_me';
 import type { WorldApp } from '../world';
 
 type SearchHit =
   | { kind: 'zone' | 'room'; id: number; name: string; sub: string }
   | { kind: 'user'; userId: string; name: string; sub: string };
+
+/** The five settable presence states + dot colors matching the world's
+ *  availability ring palette (world/staff.ts). */
+const PRESENCE_OPTIONS: { value: PreferredAvailability; label: string; color: string }[] = [
+  { value: 'Available', label: 'Available', color: '#2dd4bf' },
+  { value: 'Busy', label: 'Busy', color: '#f97316' },
+  { value: 'DoNotDisturb', label: 'Do not disturb', color: '#ef4444' },
+  { value: 'BeRightBack', label: 'Be right back', color: '#9ca3af' },
+  { value: 'Away', label: 'Away', color: '#9ca3af' },
+];
+
+/**
+ * Set-my-status dropdown (Presence.ReadWrite, delegated; consented on first
+ * use). Rendered only when signed in. The world's staff ring updates on the
+ * next presence poll — the tooltip says so.
+ */
+function StatusControl() {
+  const [busy, setBusy] = useState(false);
+  const [current, setCurrent] = useState<PreferredAvailability | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [needsConsent, setNeedsConsent] = useState(false);
+  const lastChoice = useRef<string | null>(null);
+
+  const apply = async (choice: string) => {
+    lastChoice.current = choice;
+    setBusy(true);
+    setError(null);
+    setNeedsConsent(false);
+    try {
+      if (choice === 'reset') {
+        await clearMyPresence();
+        setCurrent(null);
+      } else {
+        await setMyPresence(choice as PreferredAvailability);
+        setCurrent(choice as PreferredAvailability);
+      }
+    } catch (err) {
+      if (consentish(err)) {
+        setNeedsConsent(true);
+        setError('Setting your status needs consent for presence access.');
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const active = current ? PRESENCE_OPTIONS.find(o => o.value === current) : null;
+  return (
+    <span className="presence-set">
+      {active && (
+        <span
+          className="presence-dot"
+          style={{ background: active.color }}
+          title={`${active.label} — world updates within a minute`}
+        />
+      )}
+      <select
+        className="presence-select"
+        disabled={busy}
+        value=""
+        onChange={e => void apply(e.target.value)}
+        title="Set my Teams status — world updates within a minute"
+        aria-label="Set my status"
+      >
+        <option value="" disabled>
+          {busy ? '…' : active ? active.label : 'Status'}
+        </option>
+        {PRESENCE_OPTIONS.map(o => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        <option value="reset">Reset</option>
+      </select>
+      {error && (
+        <div className="presence-pop error-box">
+          {error}
+          {needsConsent && lastChoice.current && (
+            <button className="primary-btn messages-grant" onClick={() => void apply(lastChoice.current!)}>
+              Grant access
+            </button>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
 
 /** Sign-in button / account chip. Reloading after auth changes is the v1 way
  *  to swap the SpacetimeDB connection identity. */
@@ -19,6 +110,7 @@ function AccountControl() {
     return (
       <span className="account-chip" title={acct.username}>
         <span className="account-name">{acct.name ?? acct.username}</span>
+        <StatusControl />
         <button
           className="ghost-btn"
           disabled={busy}

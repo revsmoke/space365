@@ -49,7 +49,7 @@ tokenless connections at the module (`client_connected` throws).
 | `Team.ReadBasic.All`, `Channel.ReadBasic.All` | validate deep links | no |
 | `ChannelMessage.Send` | send messages to channels | no |
 | `Chat.ReadWrite` | read/send own 1:1 & group chats | no |
-| `ChannelMessage.Read.All` | content-on-click (read recent channel messages) | **YES — Bryan: one click in portal** |
+| `ChannelMessage.Read.All` | content-on-click (read recent channel messages) | **YES — Bryan: one click in portal** (programmatic grant attempted 2026-07-06: 403, app lacks DelegatedPermissionGrant.ReadWrite.All — correctly so) |
 | `Presence.Read` | own presence for self-view | no |
 
 Added to the app's requiredResourceAccess so the portal shows a single consent surface.

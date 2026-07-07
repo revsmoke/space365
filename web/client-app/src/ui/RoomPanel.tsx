@@ -2,6 +2,7 @@ import React from 'react';
 import { stdb, microsToDate } from '../stdb';
 import { KIOSK } from '../config';
 import { useStore } from './hooks';
+import { RoomMessages } from './RoomMessages';
 
 export function RoomPanel({ roomId, onClose }: { roomId: number; onClose: () => void }) {
   useStore('rooms');
@@ -55,6 +56,7 @@ export function RoomPanel({ roomId, onClose }: { roomId: number; onClose: () => 
           Open in Teams ↗
         </a>
       )}
+      {!KIOSK && <RoomMessages teamId={room.teamId} channelId={room.channelId} />}
     </div>
   );
 }

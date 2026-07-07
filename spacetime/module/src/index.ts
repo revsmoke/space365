@@ -1235,6 +1235,7 @@ const PresenceView = t.object('PresenceView', {
 const PolicyView = t.object('PolicyView', {
   allow_presence: t.bool(),
   allow_aggregates: t.bool(),
+  allow_content_on_click: t.bool(),
   safe_mode: t.bool(),
   dev_mode: t.bool(),
   layout_version: t.u32(),
@@ -1402,6 +1403,8 @@ export const worldPolicy = spacetimedb.anonymousView(
     return [{
       allow_presence: get('allow_presence', 'true') === 'true',
       allow_aggregates: get('allow_aggregates', 'true') === 'true',
+      allow_content_on_click:
+        get('allow_content_on_click', 'false') === 'true' && get('safe_mode', 'false') !== 'true',
       safe_mode: get('safe_mode', 'false') === 'true',
       dev_mode: get('dev_mode', 'false') === 'true',
       layout_version: parseInt(get('layout_version', '1'), 10),

@@ -5,6 +5,7 @@
     "": {
       "name": "space365-client",
       "dependencies": {
+        "@azure/msal-browser": "^5.16.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "spacetimedb": "2.6.1",
@@ -22,6 +23,10 @@
     },
   },
   "packages": {
+    "@azure/msal-browser": ["@azure/msal-browser@5.16.0", "", { "dependencies": { "@azure/msal-common": "16.11.0" } }, "sha512-Wc75FGnQgYpsm5jsOqn1H8AXsh8vXruA6vwip1nhjrJxwby7juxKAIVLr7csepmHiwdZGr6EwI5BlSc3PizEtQ=="],
+
+    "@azure/msal-common": ["@azure/msal-common@16.11.0", "", {}, "sha512-UikJOtMwkFpZNzTH6Dqk8UTUPbow15zH3e0UjGYZy69lYENW/S05gMLhbxI2eonz66uALhIljvhsSMEb6+O30g=="],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/compat-data": ["@babel/compat-data@7.29.7", "", {}, "sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg=="],

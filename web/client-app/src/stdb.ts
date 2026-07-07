@@ -31,7 +31,8 @@ import CallStatsAggRow from '@bindings/call_stats_agg_table';
 import BookingsAppointmentRow from '@bindings/bookings_appointment_table';
 import DecorationRow from '@bindings/decoration_table';
 
-import { STDB_URI, STDB_DB, TOKEN_STORAGE_KEY } from './config';
+import { STDB_URI, STDB_DB, ANON_TOKEN_STORAGE_KEY, LEGACY_TOKEN_STORAGE_KEY } from './config';
+import { account, getIdToken } from './auth';
 
 export type WorldZone = Infer<typeof WorldZonesRow>;
 export type WorldRoom = Infer<typeof WorldRoomsRow>;
@@ -179,16 +180,48 @@ class Stdb {
     this.#listeners.get(event)?.forEach(cb => cb(payload));
   }
 
+  /** true when the current STDB connection was made with an Entra ID token */
+  signedInConnection = false;
+  #authRetried = false;
+  /** set after repeated Entra token rejections: stay anonymous this session */
+  #authFallback = false;
+
   start(): void {
     if (this.#started) return;
     this.#started = true;
-    this.#connect();
+    // one-time migration of the pre-auth anonymous token key
+    const legacy = localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY);
+    if (legacy && !localStorage.getItem(ANON_TOKEN_STORAGE_KEY)) {
+      localStorage.setItem(ANON_TOKEN_STORAGE_KEY, legacy);
+      localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    }
+    void this.#connect();
   }
 
-  #connect(): void {
+  /**
+   * Pick the connection credential: signed-in users connect with a fresh Entra
+   * ID token (the module validates tenant + auto-links oid — docs/AUTH_PLAN.md);
+   * otherwise the cached anonymous dev token. The two yield DIFFERENT STDB
+   * identities on purpose, so the Entra token is never persisted under the
+   * anonymous key (and vice versa).
+   */
+  async #connectionToken(forceRefresh = false): Promise<{ token: string | undefined; signedIn: boolean }> {
+    if (account() && !this.#authFallback) {
+      try {
+        const idToken = await getIdToken(forceRefresh);
+        if (idToken) return { token: idToken, signedIn: true };
+      } catch (err) {
+        console.warn('[stdb] could not acquire Entra ID token; connecting anonymously', err);
+      }
+    }
+    return { token: localStorage.getItem(ANON_TOKEN_STORAGE_KEY) ?? undefined, signedIn: false };
+  }
+
+  async #connect(forceRefresh = false): Promise<void> {
     this.status = 'connecting';
     this.#emit('status');
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY) ?? undefined;
+    const { token, signedIn } = await this.#connectionToken(forceRefresh);
+    this.signedInConnection = signedIn;
 
     this.conn = DbConnection.builder()
       .withUri(STDB_URI)
@@ -196,7 +229,10 @@ class Stdb {
       .withToken(token)
       .onConnect((conn, identity, newToken) => {
         this.identityHex = identity.toHexString();
-        localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+        this.#authRetried = false;
+        // Persist only the anonymous credential; Entra tokens are re-acquired
+        // fresh from MSAL on every (re)connect.
+        if (!signedIn) localStorage.setItem(ANON_TOKEN_STORAGE_KEY, newToken);
         this.#registerCallbacks(conn);
         conn
           .subscriptionBuilder()
@@ -251,9 +287,21 @@ class Stdb {
       })
       .onConnectError((_ctx, err) => {
         console.error('[stdb] connect error', err);
-        // A stale token can be rejected; drop it and retry fresh.
-        if (localStorage.getItem(TOKEN_STORAGE_KEY)) {
-          localStorage.removeItem(TOKEN_STORAGE_KEY);
+        if (signedIn) {
+          // Entra token rejected: force-refresh the ID token once, then give
+          // up on the signed-in identity and fall back to anonymous.
+          if (!this.#authRetried) {
+            this.#authRetried = true;
+            this.status = 'connecting';
+            this.#emit('status');
+            void this.#connect(true);
+            return;
+          }
+          console.warn('[stdb] Entra token rejected twice; falling back to anonymous connection');
+          this.#authFallback = true;
+        } else if (localStorage.getItem(ANON_TOKEN_STORAGE_KEY)) {
+          // A stale anonymous token can be rejected; drop it and retry fresh.
+          localStorage.removeItem(ANON_TOKEN_STORAGE_KEY);
         }
         this.status = 'stale';
         this.#emit('status');
@@ -678,6 +726,21 @@ class Stdb {
   }
 
   // ---- derived helpers --------------------------------------------------
+
+  /**
+   * allow_content_on_click policy flag.
+   * NOTE: the current world_policy view/bindings do NOT carry this field yet
+   * (it exists only as a module config key, default 'false'). Resolution order:
+   *  1. policy row field, if a future module/bindings regen adds it,
+   *  2. live admin_config value (admins only),
+   *  3. false (safe default — feature hidden).
+   */
+  get allowContentOnClick(): boolean {
+    const p = this.policy as unknown as Record<string, unknown> | null;
+    if (p && typeof p.allowContentOnClick === 'boolean') return p.allowContentOnClick;
+    const row = this.adminConfig.get('allow_content_on_click');
+    return row ? row.value === 'true' : false;
+  }
 
   zoneName(zoneId: number): string {
     return this.zones.get(zoneId)?.name ?? `Zone ${zoneId}`;

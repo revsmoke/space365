@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { stdb } from '../stdb';
 import { KIOSK } from '../config';
 import { useStore } from './hooks';
+import { account, signIn, signOut } from '../auth';
 import type { WorldApp } from '../world';
 
 interface SearchHit {
@@ -9,6 +10,50 @@ interface SearchHit {
   id: number;
   name: string;
   sub: string;
+}
+
+/** Sign-in button / account chip. Reloading after auth changes is the v1 way
+ *  to swap the SpacetimeDB connection identity. */
+function AccountControl() {
+  const [busy, setBusy] = useState(false);
+  const acct = account();
+
+  if (acct) {
+    return (
+      <span className="account-chip" title={acct.username}>
+        <span className="account-name">{acct.name ?? acct.username}</span>
+        <button
+          className="ghost-btn"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await signOut().catch(() => undefined);
+            window.location.reload();
+          }}
+        >
+          Sign out
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      className="primary-btn signin-btn"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await signIn();
+          window.location.reload();
+        } catch (err) {
+          console.warn('[auth] sign-in cancelled/failed', err);
+          setBusy(false);
+        }
+      }}
+    >
+      Sign in with Microsoft
+    </button>
+  );
 }
 
 export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivacy: () => void }) {
@@ -70,6 +115,7 @@ export function TopBar({ world, onOpenPrivacy }: { world: WorldApp; onOpenPrivac
         </div>
       )}
       <div className="topbar-right">
+        {!KIOSK && <AccountControl />}
         {!KIOSK && stdb.isAdmin && (
           <a className="ghost-btn" href="#/admin">
             Admin

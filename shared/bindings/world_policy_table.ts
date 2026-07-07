@@ -13,6 +13,7 @@ import {
 export default __t.row({
   allowPresence: __t.bool().name("allow_presence"),
   allowAggregates: __t.bool().name("allow_aggregates"),
+  allowContentOnClick: __t.bool().name("allow_content_on_click"),
   safeMode: __t.bool().name("safe_mode"),
   devMode: __t.bool().name("dev_mode"),
   layoutVersion: __t.u32().name("layout_version"),

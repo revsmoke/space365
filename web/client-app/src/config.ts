@@ -13,4 +13,17 @@ export const STDB_DB: string =
 export const REDUCED_MOTION: boolean =
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-export const TOKEN_STORAGE_KEY = 'space365.stdb.token';
+/** Anonymous (dev_mode) SpacetimeDB token. Signed-in connections use a fresh
+ *  Entra ID token instead and never persist it here — the two identities are
+ *  intentionally distinct. */
+export const ANON_TOKEN_STORAGE_KEY = 'space365.stdb.token.anon';
+/** pre-auth key; migrated to ANON_TOKEN_STORAGE_KEY on startup */
+export const LEGACY_TOKEN_STORAGE_KEY = 'space365.stdb.token';
+
+// Microsoft Entra (see docs/AUTH_PLAN.md)
+export const ENTRA_CLIENT_ID: string =
+  (import.meta.env.VITE_ENTRA_CLIENT_ID as string | undefined) ??
+  'c0c22d69-599d-4e47-8e42-502033f70996';
+export const ENTRA_TENANT_ID: string =
+  (import.meta.env.VITE_ENTRA_TENANT_ID as string | undefined) ??
+  'ddd9f933-04a5-43f0-8673-5933da46cdcb';

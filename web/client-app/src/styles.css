@@ -1203,3 +1203,109 @@ body {
     left: 16px;
   }
 }
+
+/* ---- auth ---- */
+.signin-btn {
+  white-space: nowrap;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-name {
+  font-size: 13px;
+  font-weight: 650;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- room messages ---- */
+.room-messages {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.messages-toggle {
+  width: 100%;
+  text-align: left;
+}
+
+.messages-hint {
+  font-size: 12px;
+  padding: 4px 2px;
+}
+
+.messages-body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.messages-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.message-row {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 9px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+}
+
+.message-sender {
+  font-weight: 650;
+  margin-right: 6px;
+}
+
+.message-time {
+  font-size: 11px;
+}
+
+.message-text {
+  margin-top: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.composer {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.composer-input {
+  flex: 1;
+  resize: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font: 13px 'Segoe UI', system-ui, sans-serif;
+  padding: 7px 10px;
+  outline: none;
+}
+
+.composer-input:focus {
+  border-color: var(--accent);
+}
+
+.messages-grant {
+  display: block;
+  margin-top: 8px;
+}
+
+.messages-privacy {
+  font-size: 10.5px;
+  text-align: right;
+}

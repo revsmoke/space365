@@ -13,6 +13,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
 
   const quests = [...stdb.quests.values()].filter(q => q.status !== 'dismissed');
   const devMode = stdb.policy?.devMode ?? false;
+  const signedIn = stdb.signedInConnection;
 
   const toggleOptIn = async () => {
     setBusy(true);
@@ -57,22 +58,32 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
       </label>
       {needsLink && (
         <div className="link-box">
-          <p className="dim">Your session isn't linked to an M365 identity yet.</p>
-          {devMode ? (
-            <div className="link-row">
-              <input
-                className="search"
-                placeholder="dev: link as user id…"
-                value={linkUserId}
-                onChange={e => setLinkUserId(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && linkUserId.trim() && linkSelf()}
-              />
-              <button className="primary-btn" disabled={busy || !linkUserId.trim()} onClick={linkSelf}>
-                Link
-              </button>
-            </div>
+          {signedIn ? (
+            // Signed-in connections are auto-linked server-side from JWT claims;
+            // if we still get needs-link the connection is anonymous (fallback).
+            <p className="dim">
+              Linking happens automatically on a signed-in connection — try reloading.
+            </p>
           ) : (
-            <p className="dim">Sign-in linking arrives with MSAL (P4).</p>
+            <>
+              <p className="dim">Your session isn't linked to an M365 identity yet.</p>
+              {devMode ? (
+                <div className="link-row">
+                  <input
+                    className="search"
+                    placeholder="dev: link as user id…"
+                    value={linkUserId}
+                    onChange={e => setLinkUserId(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && linkUserId.trim() && linkSelf()}
+                  />
+                  <button className="primary-btn" disabled={busy || !linkUserId.trim()} onClick={linkSelf}>
+                    Link
+                  </button>
+                </div>
+              ) : (
+                <p className="dim">Sign in with Microsoft (top bar) to link your account.</p>
+              )}
+            </>
           )}
         </div>
       )}

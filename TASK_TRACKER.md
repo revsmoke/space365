@@ -61,7 +61,7 @@ to `SIM-DONE` — logic proven, infrastructure not.
 | P2.3 Voxel campus renderer | `DONE` | P2.1, P2.2 |
 | P2.4 Live glow/particles/minimap | `DONE (glow shader, bursts; minimap pending)` | P2.3, P1.3 |
 | P2.5 Overlay UI (feed, drill-down, search/fast-travel, privacy page) | `DONE` | P2.3 |
-| P2.6 MSAL sign-in | `PENDING` | P0.4 |
+| P2.6 MSAL sign-in | `PENDING — needs interactive session with Bryan (Entra ID-token spike + wiring)` | P0.4 |
 | P2.7 Kiosk mode | `DONE` | P2.4 |
 | P2.8 Perf pass (60fps, reduced motion, palettes) | `DONE (40 draws @1536 rooms)` | P2.4 |
 
@@ -78,22 +78,22 @@ to `SIM-DONE` — logic proven, infrastructure not.
 ### P4 — Full M365 surface
 | Task | Status | Depends on |
 |---|---|---|
-| P4.1 Meeting portals | `PARTIAL (32 portals synced w/ join URLs; world render pending)` | P1.6, P2.3 |
+| P4.1 Meeting portals | `DONE (64 live portals, state visuals, privacy-safe cards)` | — |
 | P4.2 Personal quests | `DONE (planner quests + @mention quests from webhooks, body-discard invariant tested; 19 quests built from real tenant mentions)` | — |
-| P4.3 Front Desk (Bookings) | `DONE (data side; tenant has no businesses yet)` | P1.6 |
-| P4.4 Comms Tower (CallRecords viz) | `PARTIAL (138 hourly buckets synced; world viz pending)` | P1.6 |
+| P4.3 Front Desk (Bookings) | `DONE (desk + ticker in world; tenant has no businesses yet)` | — |
+| P4.4 Comms Tower (CallRecords viz) | `DONE (tower rings + 24h stacked chart from 138 real buckets)` | — |
 | P4.5 Records Room (admin-only transcripts metadata) | `PENDING` | P4.4 |
-| P4.6 Security Wing (admin-only audit viz) | `PARTIAL (audit_stats_agg + admin view; console panel in progress)` | P1.4 |
-| P4.7 Admin console | `IN_PROGRESS (agent building #/admin route)` | P1.4, P2.5 |
-| P4.8 Transparency page | `PENDING` | P4.7 |
+| P4.6 Security Wing (admin-only audit viz) | `DONE (admin console audit panel + category bars)` | — |
+| P4.7 Admin console | `DONE (scope/policy/health/audit; live e2e verified)` | — |
+| P4.8 Transparency page | `DONE (privacy modal w/ live world_policy flags)` | — |
 
 ### P5 — Playable & fun
 | Task | Status | Depends on |
 |---|---|---|
-| P5.1 Team achievements (+ optional TeamsActivity.Send) | `PENDING` | P3, P4 |
-| P5.2 Office decoration (voxel props) | `PENDING` | P3.2 |
-| P5.3 Ambient life (day/night, org-mood weather) | `PENDING` | P2.4 |
-| P5.4 Onboarding tour + dashboard mode | `PENDING` | P3, P4 |
+| P5.1 Team achievements | `DONE (daily most_active_zone tick; TeamsActivity.Send back-prop deferred, off by default)` | — |
+| P5.2 Office decoration (voxel props) | `DONE (6 props, budgeted, verified place/remove)` | — |
+| P5.3 Ambient life | `DONE (day/night, mood motes)` | — |
+| P5.4 Onboarding tour | `DONE (3-step first-run tour)` | — |
 | P5.5 Ambient sound (default muted) | `PENDING` | P5.3 |
 
 ### P6 — Hardening & ship

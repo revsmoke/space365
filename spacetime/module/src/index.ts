@@ -313,6 +313,43 @@ const worldState = table(
 );
 
 // ---------------------------------------------------------------------------
+// Group files & mail (Group.Read.All / Files.Read.All / Sites.Read.All batch,
+// consented 2026-07-07)
+// ---------------------------------------------------------------------------
+/** Ambient per-zone library stats — counts only, safe to broadcast. */
+const zoneLibrary = table(
+  { name: 'zone_library', public: true },
+  {
+    team_id: t.string().primaryKey(),
+    file_count: t.u32(),
+    recent_count_7d: t.u32(),
+    last_file_at: t.u64(),
+  }
+);
+
+/** File metadata (names + links). Member-gated via my_library_files view. */
+const libraryFile = table(
+  { name: 'library_file' },
+  {
+    file_id: t.string().primaryKey(),
+    team_id: t.string().index('btree'),
+    name: t.string(),
+    web_url: t.string(),
+    modified_at: t.u64(),
+  }
+);
+
+/** Ambient group-mailbox activity — counts only. */
+const zoneMailbox = table(
+  { name: 'zone_mailbox', public: true },
+  {
+    team_id: t.string().primaryKey(),
+    thread_count_7d: t.u32(),
+    last_topic_at: t.u64(),
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Command queue: world actions executed by the ingest service via app-role
 // Graph calls (e.g. create a channel). Admin requests, service executes.
 // ---------------------------------------------------------------------------
@@ -429,6 +466,9 @@ const spacetimedb = schema({
   auditStatsAgg,
   provisionRequest,
   zoneTask,
+  zoneLibrary,
+  libraryFile,
+  zoneMailbox,
   subscriptionHealth,
   graphCursor,
   playerState,
@@ -887,6 +927,51 @@ export const deleteZoneTask = spacetimedb.reducer(
   (ctx, { taskId }) => {
     requireRole(ctx, ['service', 'admin']);
     if (ctx.db.zoneTask.task_id.find(taskId)) ctx.db.zoneTask.task_id.delete(taskId);
+  }
+);
+
+export const upsertZoneLibrary = spacetimedb.reducer(
+  { teamId: t.string(), fileCount: t.u32(), recentCount7d: t.u32(), lastFileAt: t.u64() },
+  (ctx, a) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (!ingestAllowed(ctx)) return;
+    const row = { team_id: a.teamId, file_count: a.fileCount, recent_count_7d: a.recentCount7d, last_file_at: a.lastFileAt };
+    if (ctx.db.zoneLibrary.team_id.find(a.teamId)) ctx.db.zoneLibrary.team_id.update(row);
+    else ctx.db.zoneLibrary.insert(row);
+  }
+);
+
+export const upsertLibraryFile = spacetimedb.reducer(
+  { fileId: t.string(), teamId: t.string(), name: t.string(), webUrl: t.string(), modifiedAt: t.u64() },
+  (ctx, a) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (!ingestAllowed(ctx)) return;
+    const row = { file_id: a.fileId, team_id: a.teamId, name: a.name, web_url: a.webUrl, modified_at: a.modifiedAt };
+    if (ctx.db.libraryFile.file_id.find(a.fileId)) ctx.db.libraryFile.file_id.update(row);
+    else ctx.db.libraryFile.insert(row);
+  }
+);
+
+/** Full replacement of a team's visible file list (keeps the table bounded). */
+export const pruneLibraryFiles = spacetimedb.reducer(
+  { teamId: t.string(), keepIds: t.array(t.string()) },
+  (ctx, { teamId, keepIds }) => {
+    requireRole(ctx, ['service', 'admin']);
+    const keep = new Set(keepIds);
+    for (const f of [...ctx.db.libraryFile.team_id.filter(teamId)]) {
+      if (!keep.has(f.file_id)) ctx.db.libraryFile.file_id.delete(f.file_id);
+    }
+  }
+);
+
+export const upsertZoneMailbox = spacetimedb.reducer(
+  { teamId: t.string(), threadCount7d: t.u32(), lastTopicAt: t.u64() },
+  (ctx, a) => {
+    requireRole(ctx, ['service', 'admin']);
+    if (!ingestAllowed(ctx)) return;
+    const row = { team_id: a.teamId, thread_count_7d: a.threadCount7d, last_topic_at: a.lastTopicAt };
+    if (ctx.db.zoneMailbox.team_id.find(a.teamId)) ctx.db.zoneMailbox.team_id.update(row);
+    else ctx.db.zoneMailbox.insert(row);
   }
 );
 
@@ -1597,6 +1682,21 @@ export const myZoneTasks = spacetimedb.view(
       for (const task of [...ctx.db.zoneTask.team_id.filter(tm.team_id)]) {
         out.push(task);
       }
+    }
+    return out;
+  }
+);
+
+/** Team file lists for the caller's teams only (membership-gated). */
+export const myLibraryFiles = spacetimedb.view(
+  { name: 'my_library_files', public: true },
+  t.array(libraryFile.rowType),
+  (ctx) => {
+    const link = ctx.db.identityLink.identity.find(ctx.sender);
+    if (!link) return [];
+    const out: any[] = [];
+    for (const tm of [...ctx.db.teamMember.user_id.filter(link.user_id)]) {
+      for (const f of [...ctx.db.libraryFile.team_id.filter(tm.team_id)]) out.push(f);
     }
     return out;
   }

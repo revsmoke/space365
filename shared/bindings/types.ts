@@ -168,6 +168,15 @@ export const IdentityLink = __t.object("IdentityLink", {
 });
 export type IdentityLink = __Infer<typeof IdentityLink>;
 
+export const LibraryFile = __t.object("LibraryFile", {
+  fileId: __t.string(),
+  teamId: __t.string(),
+  name: __t.string(),
+  webUrl: __t.string(),
+  modifiedAt: __t.u64(),
+});
+export type LibraryFile = __Infer<typeof LibraryFile>;
+
 export const Meeting = __t.object("Meeting", {
   eventId: __t.string(),
   teamId: __t.option(__t.string()),
@@ -191,6 +200,9 @@ export type MeetingPortalView = __Infer<typeof MeetingPortalView>;
 
 export const MeetingPortals = __t.object("MeetingPortals", {});
 export type MeetingPortals = __Infer<typeof MeetingPortals>;
+
+export const MyLibraryFiles = __t.object("MyLibraryFiles", {});
+export type MyLibraryFiles = __Infer<typeof MyLibraryFiles>;
 
 export const MyPrivateRooms = __t.object("MyPrivateRooms", {});
 export type MyPrivateRooms = __Infer<typeof MyPrivateRooms>;
@@ -399,6 +411,21 @@ export type WorldState = __Infer<typeof WorldState>;
 
 export const WorldZones = __t.object("WorldZones", {});
 export type WorldZones = __Infer<typeof WorldZones>;
+
+export const ZoneLibrary = __t.object("ZoneLibrary", {
+  teamId: __t.string(),
+  fileCount: __t.u32(),
+  recentCount7D: __t.u32(),
+  lastFileAt: __t.u64(),
+});
+export type ZoneLibrary = __Infer<typeof ZoneLibrary>;
+
+export const ZoneMailbox = __t.object("ZoneMailbox", {
+  teamId: __t.string(),
+  threadCount7D: __t.u32(),
+  lastTopicAt: __t.u64(),
+});
+export type ZoneMailbox = __Infer<typeof ZoneMailbox>;
 
 export const ZoneTask = __t.object("ZoneTask", {
   taskId: __t.string(),

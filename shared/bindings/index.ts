@@ -50,6 +50,7 @@ import IngestPresenceReducer from "./ingest_presence_reducer";
 import LinkIdentityReducer from "./link_identity_reducer";
 import MovePlayerReducer from "./move_player_reducer";
 import PlaceDecorationReducer from "./place_decoration_reducer";
+import PruneLibraryFilesReducer from "./prune_library_files_reducer";
 import RemoveDecorationReducer from "./remove_decoration_reducer";
 import ServiceCompleteProvisionReducer from "./service_complete_provision_reducer";
 import SetEmoteReducer from "./set_emote_reducer";
@@ -60,9 +61,12 @@ import SyncTeamMembershipReducer from "./sync_team_membership_reducer";
 import UpdateSubscriptionHealthReducer from "./update_subscription_health_reducer";
 import UpsertBookingAppointmentReducer from "./upsert_booking_appointment_reducer";
 import UpsertChannelReducer from "./upsert_channel_reducer";
+import UpsertLibraryFileReducer from "./upsert_library_file_reducer";
 import UpsertMeetingReducer from "./upsert_meeting_reducer";
 import UpsertTeamReducer from "./upsert_team_reducer";
 import UpsertUserReducer from "./upsert_user_reducer";
+import UpsertZoneLibraryReducer from "./upsert_zone_library_reducer";
+import UpsertZoneMailboxReducer from "./upsert_zone_mailbox_reducer";
 import UpsertZoneTaskReducer from "./upsert_zone_task_reducer";
 
 // Import all procedure arg schemas
@@ -80,6 +84,7 @@ import CallStatsAggRow from "./call_stats_agg_table";
 import DecorationRow from "./decoration_table";
 import EvtRoomBurstRow from "./evt_room_burst_table";
 import MeetingPortalsRow from "./meeting_portals_table";
+import MyLibraryFilesRow from "./my_library_files_table";
 import MyPrivateRoomsRow from "./my_private_rooms_table";
 import MyQuestsRow from "./my_quests_table";
 import MyZoneTasksRow from "./my_zone_tasks_table";
@@ -93,6 +98,8 @@ import WorldPolicyRow from "./world_policy_table";
 import WorldRoomsRow from "./world_rooms_table";
 import WorldStateRow from "./world_state_table";
 import WorldZonesRow from "./world_zones_table";
+import ZoneLibraryRow from "./zone_library_table";
+import ZoneMailboxRow from "./zone_mailbox_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -205,6 +212,28 @@ const tablesSchema = __schema({
       { name: 'world_state_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, WorldStateRow),
+  zoneLibrary: __table({
+    name: 'zone_library',
+    indexes: [
+      { accessor: 'team_id', name: 'zone_library_team_id_idx_btree', algorithm: 'btree', columns: [
+        'teamId',
+      ] },
+    ],
+    constraints: [
+      { name: 'zone_library_team_id_key', constraint: 'unique', columns: ['teamId'] },
+    ],
+  }, ZoneLibraryRow),
+  zoneMailbox: __table({
+    name: 'zone_mailbox',
+    indexes: [
+      { accessor: 'team_id', name: 'zone_mailbox_team_id_idx_btree', algorithm: 'btree', columns: [
+        'teamId',
+      ] },
+    ],
+    constraints: [
+      { name: 'zone_mailbox_team_id_key', constraint: 'unique', columns: ['teamId'] },
+    ],
+  }, ZoneMailboxRow),
   adminAudit: __table({
     name: 'admin_audit',
     indexes: [
@@ -254,6 +283,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MeetingPortalsRow),
+  myLibraryFiles: __table({
+    name: 'my_library_files',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyLibraryFilesRow),
   myPrivateRooms: __table({
     name: 'my_private_rooms',
     indexes: [
@@ -344,6 +380,7 @@ const reducersSchema = __reducers(
   __reducerSchema("link_identity", LinkIdentityReducer),
   __reducerSchema("move_player", MovePlayerReducer),
   __reducerSchema("place_decoration", PlaceDecorationReducer),
+  __reducerSchema("prune_library_files", PruneLibraryFilesReducer),
   __reducerSchema("remove_decoration", RemoveDecorationReducer),
   __reducerSchema("service_complete_provision", ServiceCompleteProvisionReducer),
   __reducerSchema("set_emote", SetEmoteReducer),
@@ -354,9 +391,12 @@ const reducersSchema = __reducers(
   __reducerSchema("update_subscription_health", UpdateSubscriptionHealthReducer),
   __reducerSchema("upsert_booking_appointment", UpsertBookingAppointmentReducer),
   __reducerSchema("upsert_channel", UpsertChannelReducer),
+  __reducerSchema("upsert_library_file", UpsertLibraryFileReducer),
   __reducerSchema("upsert_meeting", UpsertMeetingReducer),
   __reducerSchema("upsert_team", UpsertTeamReducer),
   __reducerSchema("upsert_user", UpsertUserReducer),
+  __reducerSchema("upsert_zone_library", UpsertZoneLibraryReducer),
+  __reducerSchema("upsert_zone_mailbox", UpsertZoneMailboxReducer),
   __reducerSchema("upsert_zone_task", UpsertZoneTaskReducer),
 );
 

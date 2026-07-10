@@ -104,8 +104,8 @@ Legend: ✅ shipped · 🟡 permission held, build next · 🔒 needs new permis
 | Group Planner → team quest board | ✅ | personal quests + membership-gated zone task boards (bucket, progress, due) |
 | Group files/SharePoint → "library" building | ✅ | per-zone library buildings, ambient stats + member-gated file lists (49 live rows) |
 | Group mailbox → zone mail stats | ✅ | thread counts/times only on zone boards |
-| Join/leave group from the world | 🔒 | `GroupMember.ReadWrite.All` delegated + admin policy |
-| Group creation (found a new zone) | 🔒 | `Group.ReadWrite.All`; admin-gated ceremony |
+| Join/leave group from the world | ✅ | self-service requests (policy-gated, self-only, audited) executed via GroupMember.ReadWrite.All; live status chips |
+| Group creation (found a new zone) | ✅ | admin console form → real unified M365 group + enabled zone (teamification is a follow-up) |
 
 ### Permissions shopping list for full Groups parity (next admin-consent batch)
 `Group.Read.All` (app+delegated), `GroupMember.Read.All`, `Files.Read.All`, `Sites.Read.All`,

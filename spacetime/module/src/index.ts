@@ -368,6 +368,25 @@ const provisionRequest = table(
   }
 );
 
+/**
+ * Self-service membership ceremonies (join/leave a group from the world).
+ * Users request for THEMSELVES only; the ingest service executes via
+ * GroupMember.ReadWrite.All and reports back. Policy-gated + audited.
+ */
+const memberRequest = table(
+  { name: 'member_request' },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    team_id: t.string(),
+    user_id: t.string(),
+    action: t.string(), // 'join' | 'leave'
+    requested_by: t.string(), // identity hex
+    status: t.string().index('btree'), // 'pending' | 'done' | 'failed'
+    result_ref: t.option(t.string()),
+    created_at: t.u64(),
+  }
+);
+
 // Team-visible Planner tasks (zone task board). Titles are visible to the
 // whole team in Planner itself, so member-gating matches source semantics.
 const zoneTask = table(
@@ -465,6 +484,7 @@ const spacetimedb = schema({
   callStatsAgg,
   auditStatsAgg,
   provisionRequest,
+  memberRequest,
   zoneTask,
   zoneLibrary,
   libraryFile,
@@ -579,6 +599,7 @@ export const init = spacetimedb.init((ctx) => {
     ['allow_presence', 'true'],
     ['allow_aggregates', 'true'],
     ['allow_content_on_click', 'false'],
+    ['allow_group_join', 'false'], // self-service join/leave ceremonies (write scope)
     ['presence_feature', 'flag_off'], // awaiting Presence.Read.All (calendar fallback active)
     ['online_meetings_feature', 'flag_off'], // awaiting OnlineMeetings.Read.All
     ['spike_threshold_1m', '10'],
@@ -879,6 +900,71 @@ export const adminRequestChannel = spacetimedb.reducer(
       created_at: nowMicros(ctx),
     });
     audit(ctx, 'request_channel', `${teamId}: ${name.trim()}`);
+  }
+);
+
+/** Admin founds a new zone: creates a real M365 group+team via the service. */
+export const adminRequestGroup = spacetimedb.reducer(
+  { name: t.string(), description: t.string() },
+  (ctx, { name, description }) => {
+    requireRole(ctx, ['admin']);
+    if (!name.trim()) throw new SenderError('name required');
+    ctx.db.provisionRequest.insert({
+      id: 0n,
+      kind: 'group',
+      team_id: '',
+      name: name.trim(),
+      description,
+      requested_by: ctx.sender.toHexString(),
+      status: 'pending',
+      result_ref: undefined,
+      created_at: nowMicros(ctx),
+    });
+    audit(ctx, 'request_group', name.trim());
+  }
+);
+
+/** Signed-in user asks to join/leave a group — for THEMSELVES only. */
+export const requestMembership = spacetimedb.reducer(
+  { teamId: t.string(), action: t.string() },
+  (ctx, { teamId, action }) => {
+    if (getConfig(ctx, 'allow_group_join', 'false') !== 'true') {
+      throw new SenderError('self-service membership is disabled by your admin');
+    }
+    if (getConfig(ctx, 'safe_mode', 'false') === 'true') throw new SenderError('safe mode');
+    if (action !== 'join' && action !== 'leave') throw new SenderError('action must be join|leave');
+    const userId = linkedUserId(ctx);
+    if (!userId) throw new SenderError('sign in first');
+    const team = ctx.db.team.team_id.find(teamId);
+    if (!team) throw new SenderError('unknown group');
+    const isMember = [...ctx.db.teamMember.by_team_user.filter([teamId, userId] as any)].length > 0;
+    if (action === 'join' && isMember) throw new SenderError('already a member');
+    if (action === 'leave' && !isMember) throw new SenderError('not a member');
+    for (const r of [...ctx.db.memberRequest.status.filter('pending')]) {
+      if (r.team_id === teamId && r.user_id === userId) throw new SenderError('request already pending');
+    }
+    ctx.db.memberRequest.insert({
+      id: 0n,
+      team_id: teamId,
+      user_id: userId,
+      action,
+      requested_by: ctx.sender.toHexString(),
+      status: 'pending',
+      result_ref: undefined,
+      created_at: nowMicros(ctx),
+    });
+    audit(ctx, `request_${action}`, `${teamId}`);
+  }
+);
+
+export const serviceCompleteMembership = spacetimedb.reducer(
+  { requestId: t.u64(), ok: t.bool(), resultRef: t.string() },
+  (ctx, { requestId, ok, resultRef }) => {
+    requireRole(ctx, ['service', 'admin']);
+    const row = ctx.db.memberRequest.id.find(requestId);
+    if (!row) return;
+    ctx.db.memberRequest.id.update({ ...row, status: ok ? 'done' : 'failed', result_ref: resultRef });
+    audit(ctx, 'membership_result', `${row.action} ${row.team_id}: ${ok ? 'done' : 'failed'}`);
   }
 );
 
@@ -1636,6 +1722,28 @@ export const meetingPortals = spacetimedb.anonymousView(
     [...ctx.db.meeting.iter()]
       .filter((m) => m.state !== 'ended')
       .map((m) => ({ event_id: m.event_id, zone_id: m.zone_id, starts_at: m.starts_at, ends_at: m.ends_at, state: m.state }))
+);
+
+/** Pending membership ceremonies — for the executing service (and admins). */
+export const serviceMemberQueue = spacetimedb.view(
+  { name: 'service_member_queue', public: true },
+  t.array(memberRequest.rowType),
+  (ctx) => {
+    const grant = ctx.db.roleGrant.identity.find(ctx.sender);
+    if (!grant || (grant.role !== 'service' && grant.role !== 'admin')) return [];
+    return [...ctx.db.memberRequest.status.filter('pending')];
+  }
+);
+
+/** The caller's own membership requests (any status) — join/leave UI state. */
+export const myMembershipRequests = spacetimedb.view(
+  { name: 'my_membership_requests', public: true },
+  t.array(memberRequest.rowType),
+  (ctx) => {
+    const link = ctx.db.identityLink.identity.find(ctx.sender);
+    if (!link) return [];
+    return [...ctx.db.memberRequest.iter()].filter((r) => r.user_id === link.user_id).slice(-20);
+  }
 );
 
 /** Admin-only ops data. */

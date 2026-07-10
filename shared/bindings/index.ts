@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import AdminRequestChannelReducer from "./admin_request_channel_reducer";
+import AdminRequestGroupReducer from "./admin_request_group_reducer";
 import AdminSeedSchedulesReducer from "./admin_seed_schedules_reducer";
 import AdminSetScopeReducer from "./admin_set_scope_reducer";
 import AdminUpdateConfigReducer from "./admin_update_config_reducer";
@@ -52,6 +53,8 @@ import MovePlayerReducer from "./move_player_reducer";
 import PlaceDecorationReducer from "./place_decoration_reducer";
 import PruneLibraryFilesReducer from "./prune_library_files_reducer";
 import RemoveDecorationReducer from "./remove_decoration_reducer";
+import RequestMembershipReducer from "./request_membership_reducer";
+import ServiceCompleteMembershipReducer from "./service_complete_membership_reducer";
 import ServiceCompleteProvisionReducer from "./service_complete_provision_reducer";
 import SetEmoteReducer from "./set_emote_reducer";
 import SetGraphCursorReducer from "./set_graph_cursor_reducer";
@@ -85,12 +88,14 @@ import DecorationRow from "./decoration_table";
 import EvtRoomBurstRow from "./evt_room_burst_table";
 import MeetingPortalsRow from "./meeting_portals_table";
 import MyLibraryFilesRow from "./my_library_files_table";
+import MyMembershipRequestsRow from "./my_membership_requests_table";
 import MyPrivateRoomsRow from "./my_private_rooms_table";
 import MyQuestsRow from "./my_quests_table";
 import MyZoneTasksRow from "./my_zone_tasks_table";
 import PlayerStateRow from "./player_state_table";
 import PresencePublicRow from "./presence_public_table";
 import RoomActivityRow from "./room_activity_table";
+import ServiceMemberQueueRow from "./service_member_queue_table";
 import ServiceQueueRow from "./service_queue_table";
 import StaffPresenceRow from "./staff_presence_table";
 import UserRow from "./user_table";
@@ -290,6 +295,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyLibraryFilesRow),
+  myMembershipRequests: __table({
+    name: 'my_membership_requests',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyMembershipRequestsRow),
   myPrivateRooms: __table({
     name: 'my_private_rooms',
     indexes: [
@@ -325,6 +337,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, RoomActivityRow),
+  serviceMemberQueue: __table({
+    name: 'service_member_queue',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ServiceMemberQueueRow),
   serviceQueue: __table({
     name: 'service_queue',
     indexes: [
@@ -365,6 +384,7 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("admin_request_channel", AdminRequestChannelReducer),
+  __reducerSchema("admin_request_group", AdminRequestGroupReducer),
   __reducerSchema("admin_seed_schedules", AdminSeedSchedulesReducer),
   __reducerSchema("admin_set_scope", AdminSetScopeReducer),
   __reducerSchema("admin_update_config", AdminUpdateConfigReducer),
@@ -382,6 +402,8 @@ const reducersSchema = __reducers(
   __reducerSchema("place_decoration", PlaceDecorationReducer),
   __reducerSchema("prune_library_files", PruneLibraryFilesReducer),
   __reducerSchema("remove_decoration", RemoveDecorationReducer),
+  __reducerSchema("request_membership", RequestMembershipReducer),
+  __reducerSchema("service_complete_membership", ServiceCompleteMembershipReducer),
   __reducerSchema("service_complete_provision", ServiceCompleteProvisionReducer),
   __reducerSchema("set_emote", SetEmoteReducer),
   __reducerSchema("set_graph_cursor", SetGraphCursorReducer),

@@ -201,8 +201,23 @@ export type MeetingPortalView = __Infer<typeof MeetingPortalView>;
 export const MeetingPortals = __t.object("MeetingPortals", {});
 export type MeetingPortals = __Infer<typeof MeetingPortals>;
 
+export const MemberRequest = __t.object("MemberRequest", {
+  id: __t.u64(),
+  teamId: __t.string(),
+  userId: __t.string(),
+  action: __t.string(),
+  requestedBy: __t.string(),
+  status: __t.string(),
+  resultRef: __t.option(__t.string()),
+  createdAt: __t.u64(),
+});
+export type MemberRequest = __Infer<typeof MemberRequest>;
+
 export const MyLibraryFiles = __t.object("MyLibraryFiles", {});
 export type MyLibraryFiles = __Infer<typeof MyLibraryFiles>;
+
+export const MyMembershipRequests = __t.object("MyMembershipRequests", {});
+export type MyMembershipRequests = __Infer<typeof MyMembershipRequests>;
 
 export const MyPrivateRooms = __t.object("MyPrivateRooms", {});
 export type MyPrivateRooms = __Infer<typeof MyPrivateRooms>;
@@ -312,6 +327,9 @@ export const RoomView = __t.object("RoomView", {
   isPrivate: __t.bool(),
 });
 export type RoomView = __Infer<typeof RoomView>;
+
+export const ServiceMemberQueue = __t.object("ServiceMemberQueue", {});
+export type ServiceMemberQueue = __Infer<typeof ServiceMemberQueue>;
 
 export const ServiceQueue = __t.object("ServiceQueue", {});
 export type ServiceQueue = __Infer<typeof ServiceQueue>;

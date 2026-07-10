@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import AdminRequestChannelReducer from "../admin_request_channel_reducer";
+import AdminRequestGroupReducer from "../admin_request_group_reducer";
 import AdminSeedSchedulesReducer from "../admin_seed_schedules_reducer";
 import AdminSetScopeReducer from "../admin_set_scope_reducer";
 import AdminUpdateConfigReducer from "../admin_update_config_reducer";
@@ -24,6 +25,8 @@ import MovePlayerReducer from "../move_player_reducer";
 import PlaceDecorationReducer from "../place_decoration_reducer";
 import PruneLibraryFilesReducer from "../prune_library_files_reducer";
 import RemoveDecorationReducer from "../remove_decoration_reducer";
+import RequestMembershipReducer from "../request_membership_reducer";
+import ServiceCompleteMembershipReducer from "../service_complete_membership_reducer";
 import ServiceCompleteProvisionReducer from "../service_complete_provision_reducer";
 import SetEmoteReducer from "../set_emote_reducer";
 import SetGraphCursorReducer from "../set_graph_cursor_reducer";
@@ -42,6 +45,7 @@ import UpsertZoneMailboxReducer from "../upsert_zone_mailbox_reducer";
 import UpsertZoneTaskReducer from "../upsert_zone_task_reducer";
 
 export type AdminRequestChannelParams = __Infer<typeof AdminRequestChannelReducer>;
+export type AdminRequestGroupParams = __Infer<typeof AdminRequestGroupReducer>;
 export type AdminSeedSchedulesParams = __Infer<typeof AdminSeedSchedulesReducer>;
 export type AdminSetScopeParams = __Infer<typeof AdminSetScopeReducer>;
 export type AdminUpdateConfigParams = __Infer<typeof AdminUpdateConfigReducer>;
@@ -59,6 +63,8 @@ export type MovePlayerParams = __Infer<typeof MovePlayerReducer>;
 export type PlaceDecorationParams = __Infer<typeof PlaceDecorationReducer>;
 export type PruneLibraryFilesParams = __Infer<typeof PruneLibraryFilesReducer>;
 export type RemoveDecorationParams = __Infer<typeof RemoveDecorationReducer>;
+export type RequestMembershipParams = __Infer<typeof RequestMembershipReducer>;
+export type ServiceCompleteMembershipParams = __Infer<typeof ServiceCompleteMembershipReducer>;
 export type ServiceCompleteProvisionParams = __Infer<typeof ServiceCompleteProvisionReducer>;
 export type SetEmoteParams = __Infer<typeof SetEmoteReducer>;
 export type SetGraphCursorParams = __Infer<typeof SetGraphCursorReducer>;

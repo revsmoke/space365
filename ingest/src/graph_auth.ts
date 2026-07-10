@@ -189,7 +189,9 @@ export class GraphTokenProvider {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     });
-    const payload = (await response.json()) as {
+    // Guard the parse: a proxy/rate-limit error page is not JSON, and the
+    // diagnostic below is more useful than a raw SyntaxError (PR2 review).
+    const payload = (await response.json().catch(() => ({}))) as {
       access_token?: string;
       expires_in?: number;
       error?: string;

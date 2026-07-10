@@ -42,3 +42,21 @@ test("T1 createEventId is deterministic", () => {
 
   expect(createEventId(input)).toBe(createEventId(input));
 });
+
+test("T1 malformed occurred_at is rejected, never throws (PR2 review)", () => {
+  const payload = {
+    schema_version: 1,
+    event_type: "channel.message.created",
+    occurred_at: "garbage-not-a-date",
+    source: {
+      subscription_id: "sub-1",
+      resource: "teams/team-1/channels/channel-1/messages/msg-1",
+      change_type: "created",
+      resource_id: "msg-1",
+      etag: 'W/"abc"',
+    },
+    context: { team_id: "team-1", channel_id: "channel-1" },
+  };
+  // Untrusted webhook input: must surface a validation error, not a RangeError.
+  expect(() => parseCanonicalEvent(payload)).toThrow(/occurred_at/);
+});

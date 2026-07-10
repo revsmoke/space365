@@ -19,6 +19,8 @@ export type GraphClientOptions = {
   baseUrl?: string;
   maxRetries?: number;
   fetchImpl?: typeof fetch;
+  /** Per-attempt request timeout; a hung Graph call must not hang the service. */
+  timeoutMs?: number;
 };
 
 const DEFAULT_BASE_URL = "https://graph.microsoft.com/v1.0";
@@ -28,12 +30,14 @@ export class GraphClient {
   #baseUrl: string;
   #maxRetries: number;
   #fetch: typeof fetch;
+  #timeoutMs: number;
 
   constructor(options: GraphClientOptions) {
     this.#getToken = options.getToken;
     this.#baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     this.#maxRetries = options.maxRetries ?? 3;
     this.#fetch = options.fetchImpl ?? fetch;
+    this.#timeoutMs = options.timeoutMs ?? 30_000;
   }
 
   #resolveUrl(pathOrUrl: string): string {
@@ -50,15 +54,32 @@ export class GraphClient {
     const url = this.#resolveUrl(pathOrUrl);
     for (let attempt = 0; ; attempt++) {
       const token = await this.#getToken();
-      const response = await this.#fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
+      let response: Response;
+      try {
+        response = await this.#fetch(url, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          },
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        if (controller.signal.aborted && attempt < this.#maxRetries) {
+          continue; // timed out — retry like a 503
+        }
+        if (controller.signal.aborted) {
+          throw new GraphError(0, "timeout", `no response within ${this.#timeoutMs}ms`);
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (
         (response.status === 429 || response.status === 503) &&

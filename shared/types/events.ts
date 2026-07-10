@@ -160,6 +160,10 @@ function isIsoTimestamp(value: unknown): value is string {
   if (!isString(value)) {
     return false;
   }
-  const parsed = new Date(value).toISOString();
-  return parsed === value;
+  // new Date("garbage").toISOString() throws RangeError; this validates
+  // untrusted webhook payloads, so it must return false, never throw.
+  if (Number.isNaN(Date.parse(value))) {
+    return false;
+  }
+  return new Date(value).toISOString() === value;
 }

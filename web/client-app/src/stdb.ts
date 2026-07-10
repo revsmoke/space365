@@ -34,6 +34,7 @@ import DecorationRow from '@bindings/decoration_table';
 import ZoneLibraryRow from '@bindings/zone_library_table';
 import ZoneMailboxRow from '@bindings/zone_mailbox_table';
 import MyLibraryFilesRow from '@bindings/my_library_files_table';
+import MyMembershipRequestsRow from '@bindings/my_membership_requests_table';
 
 import { STDB_URI, STDB_DB, ANON_TOKEN_STORAGE_KEY, LEGACY_TOKEN_STORAGE_KEY } from './config';
 import { account, getIdToken } from './auth';
@@ -63,6 +64,7 @@ export type Decoration = Infer<typeof DecorationRow>;
 export type ZoneLibrary = Infer<typeof ZoneLibraryRow>;
 export type ZoneMailbox = Infer<typeof ZoneMailboxRow>;
 export type LibraryFile = Infer<typeof MyLibraryFilesRow>;
+export type MembershipRequest = Infer<typeof MyMembershipRequestsRow>;
 
 export type ConnStatus = 'connecting' | 'live' | 'stale';
 
@@ -90,7 +92,8 @@ export type StoreEvent =
   | 'decorations'
   | 'zoneLibraries'
   | 'zoneMailboxes'
-  | 'libraryFiles';
+  | 'libraryFiles'
+  | 'membershipRequests';
 
 type Listener = (payload?: unknown) => void;
 
@@ -147,6 +150,8 @@ class Stdb {
   zoneMailboxes = new Map<string, ZoneMailbox>();
   /** file_id -> library file visible to me (my_library_files; membership-gated) */
   libraryFiles = new Map<string, LibraryFile>();
+  /** request id (stringified u64) -> my own join/leave ceremony (my_membership_requests; identity-gated) */
+  membershipRequests = new Map<string, MembershipRequest>();
 
   /** the M365 user id this connection is linked to, if any (from own player row) */
   get myUserId(): string | null {
@@ -314,6 +319,19 @@ class Stdb {
           })
           .onError(ctx => console.warn('[stdb] my_library_files subscription error', ctx))
           .subscribe([tables.myLibraryFiles]);
+        // my_membership_requests is identity-gated (only my own join/leave
+        // ceremonies). Isolated so a view error never affects the world.
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => {
+            this.membershipRequests.clear();
+            for (const r of conn.db.myMembershipRequests.iter()) {
+              this.membershipRequests.set(r.id.toString(), r);
+            }
+            this.#emit('membershipRequests');
+          })
+          .onError(ctx => console.warn('[stdb] my_membership_requests subscription error', ctx))
+          .subscribe([tables.myMembershipRequests]);
         // my_quests is likewise identity-gated; callbacks were registered but it
         // was never subscribed — the quest board stayed empty without this.
         conn
@@ -652,6 +670,19 @@ class Stdb {
       this.#emit('libraryFiles');
     });
 
+    conn.db.myMembershipRequests.onInsert((_ctx, row) => {
+      this.membershipRequests.set(row.id.toString(), row);
+      this.#emit('membershipRequests');
+    });
+    conn.db.myMembershipRequests.onUpdate?.((_ctx, _old, row) => {
+      this.membershipRequests.set(row.id.toString(), row);
+      this.#emit('membershipRequests');
+    });
+    conn.db.myMembershipRequests.onDelete((_ctx, row) => {
+      this.membershipRequests.delete(row.id.toString());
+      this.#emit('membershipRequests');
+    });
+
     // Admin views: re-snapshot the affected slice on any change.
     const adminSync = (events: StoreEvent[]) => () => {
       this.#snapshotAdminSlices(conn, events);
@@ -836,6 +867,38 @@ class Stdb {
     if (!this.conn) return 'not connected';
     try {
       await this.conn.reducers.adminRequestChannel({ teamId, name, description });
+      return null;
+    } catch (err) {
+      if (err instanceof SenderError) return err.message;
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /**
+   * Ask to join/leave a group — for myself only (the membership worker
+   * executes it). The module's SenderError texts are the UX ('self-service
+   * membership is disabled by your admin', 'sign in first', 'already a
+   * member', ...). Resolves to an error message or null on success.
+   */
+  async requestMembership(teamId: string, action: 'join' | 'leave'): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.requestMembership({ teamId, action });
+      return null;
+    } catch (err) {
+      if (err instanceof SenderError) return err.message;
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /**
+   * Ask the world to found a new zone — a real M365 group+team (admin-only;
+   * the ingest worker provisions it). Resolves to an error message or null.
+   */
+  async adminRequestGroup(name: string, description: string): Promise<string | null> {
+    if (!this.conn) return 'not connected';
+    try {
+      await this.conn.reducers.adminRequestGroup({ name, description });
       return null;
     } catch (err) {
       if (err instanceof SenderError) return err.message;

@@ -577,6 +577,34 @@ body {
   margin: 0 0 10px;
 }
 
+.admin-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---- found a new zone (admin scope panel) ---- */
+.found-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.found-zone-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.found-zone-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .admin-scroll {
   overflow-y: auto;
   overflow-x: auto;
@@ -1666,4 +1694,20 @@ body {
   border-radius: 9px;
   padding: 7px 10px;
   font-size: 12.5px;
+}
+
+/* ---- membership ceremonies (zone board) ---- */
+.zone-member-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.zone-member-btn {
+  font-size: 12px;
+}
+
+.zone-member-status {
+  font-size: 12.5px;
+  margin-top: 4px;
 }

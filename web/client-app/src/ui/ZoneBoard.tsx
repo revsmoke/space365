@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { stdb, microsToDate, type MyZoneTask } from '../stdb';
+import { stdb, microsToDate, type MyZoneTask, type MembershipRequest } from '../stdb';
 import { KIOSK } from '../config';
 import { consentish } from '../graph_chat';
 import { createPortalMeeting } from '../graph_me';
@@ -184,6 +184,93 @@ function OpenPortalForm() {
   );
 }
 
+/**
+ * Membership ceremonies — request to join/leave THIS zone's group. The client
+ * can't read team_member (private), so both buttons always show and the
+ * server's readable SenderErrors ('already a member', 'not a member',
+ * 'disabled by your admin', ...) render inline. My own requests arrive via
+ * the identity-gated my_membership_requests view.
+ */
+function MembershipSection({ teamId }: { teamId: string }) {
+  useStore('membershipRequests');
+  useStore('players'); // myUserId comes from my own player row
+  const [busy, setBusy] = useState<'join' | 'leave' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+
+  const canRequest = stdb.signedInConnection || !!stdb.myUserId;
+
+  const request = async (action: 'join' | 'leave') => {
+    if (busy || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(action);
+    setError(null);
+    try {
+      const err = await stdb.requestMembership(teamId, action);
+      if (err) setError(err);
+    } finally {
+      inFlight.current = false;
+      setBusy(null);
+    }
+  };
+
+  // My latest ceremony for this group (newest first by created_at, then id).
+  const mine = [...stdb.membershipRequests.values()]
+    .filter(r => r.teamId === teamId)
+    .sort((a, b) => (b.createdAt < a.createdAt ? -1 : b.createdAt > a.createdAt ? 1 : b.id < a.id ? -1 : 1));
+  const latest: MembershipRequest | undefined = mine[0];
+
+  return (
+    <>
+      <div className="zone-section-title">Membership</div>
+      {!canRequest && <div className="dim zone-empty">Sign in to join.</div>}
+      {canRequest && (
+        <>
+          <div className="zone-member-row">
+            <button
+              className="ghost-btn zone-member-btn"
+              disabled={busy !== null}
+              onClick={() => void request('join')}
+            >
+              {busy === 'join' ? '…' : '🚪 Request to join'}
+            </button>
+            <button
+              className="ghost-btn zone-member-btn"
+              disabled={busy !== null}
+              onClick={() => void request('leave')}
+            >
+              {busy === 'leave' ? '…' : 'Request to leave'}
+            </button>
+          </div>
+          {error && <div className="error-box">{error}</div>}
+          {latest && (
+            <div className="zone-member-status">
+              {latest.status === 'pending' && (
+                <>
+                  <span className="chip chip-amber">{latest.action} pending</span>{' '}
+                  <span className="dim">Requested — the world is working on it…</span>
+                </>
+              )}
+              {latest.status === 'done' && (
+                <>
+                  <span className="chip chip-green">✓ {latest.action === 'join' ? 'joined' : 'left'}</span>{' '}
+                  <span className="dim">The world carried out your request.</span>
+                </>
+              )}
+              {latest.status === 'failed' && (
+                <>
+                  <span className="chip chip-red">{latest.action} failed</span>{' '}
+                  <span className="dim">{latest.resultRef || 'The world could not complete it.'}</span>
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 function RequestChannelForm({ teamId }: { teamId: string }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -340,6 +427,8 @@ export function ZoneBoard({
           })}
         </div>
       )}
+
+      {!KIOSK && <MembershipSection teamId={zone.teamId} />}
 
       {stdb.isAdmin && <RequestChannelForm teamId={zone.teamId} />}
     </div>

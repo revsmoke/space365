@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { stdb, microsToDate, type AdminChannel } from '../stdb';
 import { useStore } from './hooks';
 
@@ -95,6 +95,85 @@ function NotAuthorized() {
 
 // ---- panels ------------------------------------------------------------------
 
+/**
+ * "Found a new zone" — admin asks the world to create a real M365 group+team
+ * (admin_request_group; the ingest worker provisions it). The new zone then
+ * arrives through the normal enabled-teams sync — nothing else to render here.
+ */
+function FoundZoneForm() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState(false);
+  // synchronous re-entrancy guard (state updates are async; see RequestChannelForm)
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(false), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const submit = async () => {
+    if (busy || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const err = await stdb.adminRequestGroup(name.trim(), description.trim());
+      if (err) {
+        setError(err);
+      } else {
+        setName('');
+        setDescription('');
+        setOpen(false);
+        setToast(true);
+      }
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="found-zone">
+      {!open && (
+        <button className="ghost-btn" onClick={() => setOpen(true)}>
+          🏛️ Found a new zone
+        </button>
+      )}
+      {open && (
+        <div className="found-zone-form">
+          <input
+            className="search"
+            placeholder="Group name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+          <input
+            className="search"
+            placeholder="Description (optional)"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+          />
+          <div className="found-zone-actions">
+            <button className="primary-btn" disabled={busy} onClick={() => void submit()}>
+              {busy ? '…' : 'Found it'}
+            </button>
+            <button className="ghost-btn" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+          {error && <div className="error-box">{error}</div>}
+        </div>
+      )}
+      {toast && <div className="zone-toast">Requested — the world will build the new zone shortly.</div>}
+    </div>
+  );
+}
+
 function ScopePanel() {
   useStore('adminScope');
   const [openTeam, setOpenTeam] = useState<string | null>(null);
@@ -123,7 +202,10 @@ function ScopePanel() {
 
   return (
     <section className="admin-panel">
-      <h3>Scope</h3>
+      <div className="admin-panel-head">
+        <h3>Scope</h3>
+        <FoundZoneForm />
+      </div>
       <p className="dim admin-panel-sub">
         Which teams and channels exist in the world. Disabled rows are invisible to everyone.
       </p>
@@ -174,10 +256,13 @@ function ScopePanel() {
   );
 }
 
-const BOOL_KEYS: { key: string; label: string; danger?: boolean }[] = [
+// `optional`: the key may be absent from config until first set — treat
+// missing as 'false' and keep the toggle usable (first flip creates the row).
+const BOOL_KEYS: { key: string; label: string; danger?: boolean; optional?: boolean }[] = [
   { key: 'allow_presence', label: 'Presence (staff avatars)' },
   { key: 'allow_aggregates', label: 'Activity aggregates (glow & feed)' },
   { key: 'allow_content_on_click', label: 'Content on click' },
+  { key: 'allow_group_join', label: 'Self-service group join/leave', optional: true },
   { key: 'safe_mode', label: 'SAFE MODE — pause & hide everything', danger: true },
   { key: 'ingest_paused', label: 'Pause ingestion' },
   { key: 'dev_mode', label: 'Developer mode' },
@@ -212,13 +297,13 @@ function PolicyPanel() {
       <p className="dim admin-panel-sub">Privacy and safety switches. Changes apply live to every client.</p>
       {error && <div className="error-box">{error}</div>}
       <div className="admin-scroll">
-        {BOOL_KEYS.map(({ key, label, danger }) => (
+        {BOOL_KEYS.map(({ key, label, danger, optional }) => (
           <div key={key} className={`policy-row ${danger ? 'policy-danger' : ''}`}>
             <span>{label}</span>
             <Toggle
               checked={val(key) === 'true'}
               danger={danger}
-              disabled={busyKey === key || val(key) === undefined}
+              disabled={busyKey === key || (!optional && val(key) === undefined)}
               onChange={v => setConfig(key, v ? 'true' : 'false')}
             />
           </div>

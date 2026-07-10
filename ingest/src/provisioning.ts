@@ -2,16 +2,25 @@
  * Provisioning worker: executes admin-requested world actions via app-only
  * Graph calls (SPEC command-queue pattern).
  *
- * Admins file requests through the module's admin_request_channel reducer;
- * pending provision_request rows surface to this service through the
- * service_queue view. For each 'channel' request we create the Teams channel
- * (Channel.Create app role), assign a deterministic room slot from the shared
- * layout, upsert the channel row, and report the outcome back through
- * service_complete_provision. Completed rows leave the view, so the queue is
- * self-draining; an in-memory set additionally guarantees each request is
- * processed at most once per run.
+ * Admins file requests through the module's admin_request_channel /
+ * admin_request_group reducers; pending provision_request rows surface to
+ * this service through the service_queue view.
+ *
+ * - kind 'channel': create the Teams channel (Channel.Create app role),
+ *   assign a deterministic room slot from the shared layout, upsert the
+ *   channel row.
+ * - kind 'group': create an M365 unified group (Group.Create app role),
+ *   assign a deterministic zone slot, upsert the team row **enabled** (an
+ *   admin explicitly founded it) and sync its (empty) membership.
+ *   NOTE (v1): the group starts as a plain M365 group — we deliberately do
+ *   NOT team-ify it (no PUT /groups/{id}/team); Teams-ification is a
+ *   follow-up ceremony.
+ *
+ * Every request reports its outcome back through service_complete_provision.
+ * Completed rows leave the view, so the queue is self-draining; an in-memory
+ * set additionally guarantees each request is processed at most once per run.
  */
-import { assignRoomSlot } from "../../shared/types/layout";
+import { assignRoomSlot, assignZoneSlot } from "../../shared/types/layout";
 import type { DbConnection } from "../../shared/bindings";
 import { GraphError } from "./graph_client";
 import { stdbSql } from "./stdb_sql";
@@ -43,6 +52,19 @@ export type ProvisionReducers = {
     visibility: string;
     isEnabled: boolean;
   }): Promise<void>;
+  /** Required for kind 'group'; optional for channel-only callers (older tests). */
+  upsertTeam?(args: {
+    teamId: string;
+    name: string;
+    zoneId: number;
+    isEnabled: boolean;
+  }): Promise<void>;
+  /** Required for kind 'group'; optional for channel-only callers (older tests). */
+  syncTeamMembership?(args: {
+    teamId: string;
+    userIds: string[];
+    roles: string[];
+  }): Promise<void>;
   serviceCompleteProvision(args: {
     requestId: bigint;
     ok: boolean;
@@ -54,6 +76,8 @@ export function provisionReducers(writer: StdbWriter): ProvisionReducers {
   const r = writer.conn.reducers;
   return {
     upsertChannel: (args) => r.upsertChannel(args),
+    upsertTeam: (args) => r.upsertTeam(args),
+    syncTeamMembership: (args) => r.syncTeamMembership(args),
     serviceCompleteProvision: (args) => r.serviceCompleteProvision(args),
   };
 }
@@ -120,6 +144,96 @@ export async function createGraphChannel(
     }
     throw error;
   }
+}
+
+// --- kind 'group': found a new M365 unified group ---------------------------
+
+/** Graph caps mailNickname at 64 chars. */
+const MAIL_NICKNAME_MAX = 64;
+
+/**
+ * Derive a mailNickname from the display name: lowercase alphanumerics only.
+ * Falls back to 'group' when nothing survives (e.g. an all-symbol name).
+ */
+export function deriveMailNickname(name: string): string {
+  const nickname = name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, MAIL_NICKNAME_MAX);
+  return nickname || "group";
+}
+
+/**
+ * Nickname collision: Graph answers 400 with "Another object with the same
+ * value for property mailNickname already exists."
+ */
+export function isNicknameInUse(error: unknown): boolean {
+  if (!(error instanceof GraphError)) return false;
+  return error.status === 400 && /mailNickname/i.test(error.message);
+}
+
+/** Queue row → Graph group-create payload (M365 unified group, not a team). */
+export function groupCreatePayload(
+  row: Pick<ProvisionRow, "name" | "description">,
+  mailNickname: string,
+): {
+  displayName: string;
+  description: string;
+  mailNickname: string;
+  groupTypes: ["Unified"];
+  mailEnabled: true;
+  securityEnabled: false;
+} {
+  return {
+    displayName: row.name,
+    description: row.description,
+    mailNickname,
+    groupTypes: ["Unified"],
+    mailEnabled: true,
+    securityEnabled: false,
+  };
+}
+
+/**
+ * Create the M365 group. A mailNickname collision retries exactly once with a
+ * '-2' suffix; a second collision (or any other failure) propagates.
+ */
+export async function createGraphGroup(
+  graph: Pick<GraphProvisioner, "post">,
+  row: Pick<ProvisionRow, "name" | "description">,
+): Promise<{ groupId: string; mailNickname: string }> {
+  const nickname = deriveMailNickname(row.name);
+  const attempt = async (mailNickname: string): Promise<string> => {
+    const created = (await graph.post(
+      "/groups",
+      groupCreatePayload(row, mailNickname),
+    )) as { id?: string } | null;
+    if (!created?.id) throw new Error("group created without id");
+    return created.id;
+  };
+  try {
+    return { groupId: await attempt(nickname), mailNickname: nickname };
+  } catch (error) {
+    if (!isNicknameInUse(error)) throw error;
+    const retry = `${nickname.slice(0, MAIL_NICKNAME_MAX - 2)}-2`;
+    return { groupId: await attempt(retry), mailNickname: retry };
+  }
+}
+
+/**
+ * Deterministic zone slot for the new group: seed taken slots from the team
+ * table (same approach as groups_sync). If the group already has a team row
+ * (e.g. a retried request), its slot is kept.
+ */
+export async function assignZoneForGroup(
+  sql: SqlReader,
+  groupId: string,
+): Promise<number> {
+  const taken = new Set<number>();
+  for (const [teamId, zoneId] of await sql("SELECT team_id, zone_id FROM team")) {
+    const zone = Number(zoneId);
+    if (!Number.isFinite(zone)) continue;
+    if (teamId === groupId) return zone; // already synced: keep its slot
+    taken.add(zone);
+  }
+  return assignZoneSlot(groupId, taken);
 }
 
 /** Short failure summary for result_ref — status/code only, never tokens or PII. */
@@ -190,7 +304,7 @@ export class ProvisioningWorker {
     if (this.#processed.has(key)) return false;
     this.#processed.add(key);
 
-    if (row.kind !== "channel") {
+    if (row.kind !== "channel" && row.kind !== "group") {
       await this.#reducers.serviceCompleteProvision({
         requestId: row.id,
         ok: false,
@@ -201,25 +315,11 @@ export class ProvisioningWorker {
     }
 
     try {
-      const { channelId, reused } = await createGraphChannel(this.#graph, row);
-      const roomId = await assignRoomForChannel(this.#sql, row.teamId, channelId);
-      await this.#reducers.upsertChannel({
-        channelId,
-        teamId: row.teamId,
-        name: row.name,
-        roomId,
-        visibility: "standard",
-        isEnabled: true,
-      });
-      await this.#reducers.serviceCompleteProvision({
-        requestId: row.id,
-        ok: true,
-        resultRef: channelId,
-      });
-      this.#log(
-        `provision.done id=${key} team=${row.teamId} channel=${channelId} room=${roomId}` +
-          (reused ? " reused=1" : ""),
-      );
+      if (row.kind === "group") {
+        await this.#processGroup(row, key);
+      } else {
+        await this.#processChannel(row, key);
+      }
     } catch (error) {
       const summary = shortError(error);
       await this.#reducers.serviceCompleteProvision({
@@ -227,9 +327,68 @@ export class ProvisioningWorker {
         ok: false,
         resultRef: summary,
       });
-      this.#log(`provision.failed id=${key} error=${summary}`);
+      this.#log(`provision.failed id=${key} kind=${row.kind} error=${summary}`);
     }
     return true;
+  }
+
+  /** kind 'channel': Graph channel → room slot → upsert_channel → complete. */
+  async #processChannel(row: ProvisionRow, key: string): Promise<void> {
+    const { channelId, reused } = await createGraphChannel(this.#graph, row);
+    const roomId = await assignRoomForChannel(this.#sql, row.teamId, channelId);
+    await this.#reducers.upsertChannel({
+      channelId,
+      teamId: row.teamId,
+      name: row.name,
+      roomId,
+      visibility: "standard",
+      isEnabled: true,
+    });
+    await this.#reducers.serviceCompleteProvision({
+      requestId: row.id,
+      ok: true,
+      resultRef: channelId,
+    });
+    this.#log(
+      `provision.done id=${key} team=${row.teamId} channel=${channelId} room=${roomId}` +
+        (reused ? " reused=1" : ""),
+    );
+  }
+
+  /**
+   * kind 'group': Graph M365 group → zone slot → upsert_team (enabled: an
+   * admin explicitly founded it) → empty membership sync → complete.
+   * v1 does NOT team-ify the group (no PUT /groups/{id}/team) — it starts as
+   * a plain M365 group; teamification is a follow-up ceremony.
+   */
+  async #processGroup(row: ProvisionRow, key: string): Promise<void> {
+    const { upsertTeam, syncTeamMembership } = this.#reducers;
+    if (!upsertTeam || !syncTeamMembership) {
+      // Fail BEFORE touching Graph — never create a group we cannot record.
+      throw new Error("group provisioning needs upsertTeam + syncTeamMembership reducers");
+    }
+    const { groupId, mailNickname } = await createGraphGroup(this.#graph, row);
+    const zoneId = await assignZoneForGroup(this.#sql, groupId);
+    await upsertTeam({
+      teamId: groupId,
+      name: row.name,
+      zoneId,
+      isEnabled: true,
+    });
+    // A freshly app-created group has no members; seed the world's view.
+    await syncTeamMembership({
+      teamId: groupId,
+      userIds: [],
+      roles: [],
+    });
+    await this.#reducers.serviceCompleteProvision({
+      requestId: row.id,
+      ok: true,
+      resultRef: groupId,
+    });
+    this.#log(
+      `provision.done id=${key} group=${groupId} zone=${zoneId} nickname=${mailNickname}`,
+    );
   }
 
   /** Process pending rows in request order; returns how many were handled. */

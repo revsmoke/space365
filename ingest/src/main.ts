@@ -3,10 +3,11 @@
  *
  *   bun run ingest/src/main.ts --validate        # cert-assertion auth check (real call)
  *   bun run ingest/src/main.ts --sync-once       # full sync + users delta, then exit
- *   bun run ingest/src/main.ts --serve           # webhook + subscriptions + presence + provisioning
+ *   bun run ingest/src/main.ts --serve           # webhook + subscriptions + presence + provisioning + membership
  *   bun run ingest/src/main.ts --surfaces-once   # one pass over the P4 surfaces, then exit
  *   bun run ingest/src/main.ts --surfaces-serve  # poll the P4 surfaces on their intervals
  *   bun run ingest/src/main.ts --provision-once  # drain the provisioning queue, then exit
+ *   bun run ingest/src/main.ts --ceremonies-once # drain provisioning + membership queues, then exit
  *
  * Surface modifiers: --dry-run (fetch + map, no reducer writes) and
  * --only=meetings,bookings,calls,planner,audit,groups,libraries,mailboxes (subset).
@@ -41,6 +42,12 @@ import {
   runProvisionOnce,
   startProvisioning,
 } from "./provisioning";
+import {
+  MembershipWorker,
+  membershipReducers,
+  runMembershipOnce,
+  startMembershipWorker,
+} from "./membership_worker";
 
 const argv = process.argv.slice(2);
 const args = new Set(argv);
@@ -54,14 +61,16 @@ const mode = args.has("--serve")
         ? "surfaces-serve"
         : args.has("--provision-once")
           ? "provision-once"
-          : args.has("--validate")
-            ? "validate"
-            : null;
+          : args.has("--ceremonies-once")
+            ? "ceremonies-once"
+            : args.has("--validate")
+              ? "validate"
+              : null;
 
 if (!mode) {
   console.error(
     "Usage: bun run ingest/src/main.ts --validate | --sync-once | --serve | " +
-      "--surfaces-once | --surfaces-serve | --provision-once " +
+      "--surfaces-once | --surfaces-serve | --provision-once | --ceremonies-once " +
       "[--dry-run] [--only=meetings,bookings,calls,planner,audit,groups,libraries,mailboxes]",
   );
   process.exit(2);
@@ -97,6 +106,26 @@ if (mode === "provision-once") {
   });
   const handled = await runProvisionOnce(stdb.conn, worker);
   console.log(`provision.once done handled=${handled}`);
+  stdb.disconnect();
+  process.exit(0);
+}
+
+if (mode === "ceremonies-once") {
+  // Drain both command queues once: provisioning (channels + groups) first so
+  // a just-founded group can immediately serve join/leave ceremonies.
+  const provisioningWorker = new ProvisioningWorker({
+    graph,
+    reducers: provisionReducers(writer),
+  });
+  const provisioned = await runProvisionOnce(stdb.conn, provisioningWorker);
+  const membershipWorker = new MembershipWorker({
+    graph,
+    reducers: membershipReducers(writer),
+  });
+  const memberships = await runMembershipOnce(stdb.conn, membershipWorker);
+  console.log(
+    `ceremonies.once done provisioned=${provisioned} memberships=${memberships}`,
+  );
   stdb.disconnect();
   process.exit(0);
 }
@@ -252,12 +281,19 @@ const poller = new PresencePoller({ graph, writer });
 await poller.pollOnce();
 poller.start(60_000);
 
-// Provisioning worker: executes admin channel requests from service_queue.
+// Provisioning worker: executes admin channel/group requests from service_queue.
 const provisioningWorker = new ProvisioningWorker({
   graph,
   reducers: provisionReducers(writer),
 });
 await startProvisioning(stdb.conn, provisioningWorker);
+
+// Membership worker: executes join/leave ceremonies from service_member_queue.
+const membershipWorker = new MembershipWorker({
+  graph,
+  reducers: membershipReducers(writer),
+});
+await startMembershipWorker(stdb.conn, membershipWorker);
 
 console.log(`serve.ready port=${port}`);
 

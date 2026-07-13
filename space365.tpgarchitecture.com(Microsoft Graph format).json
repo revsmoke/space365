@@ -9,7 +9,9 @@
 	"displayName": "space365.tpgarchitecture.com",
 	"description": null,
 	"groupMembershipClaims": "None",
-	"identifierUris": [],
+	"identifierUris": [
+		"api://c0c22d69-599d-4e47-8e42-502033f70996"
+	],
 	"isDeviceOnlyAuthSupported": null,
 	"isDisabled": null,
 	"isFallbackPublicClient": null,
@@ -32,7 +34,7 @@
 	"api": {
 		"acceptMappedClaims": null,
 		"knownClientApplications": [],
-		"requestedAccessTokenVersion": null,
+		"requestedAccessTokenVersion": 2,
 		"oauth2PermissionScopes": [],
 		"preAuthorizedApplications": []
 	},
@@ -261,11 +263,95 @@
 			"resourceAppId": "00000003-0000-0000-c000-000000000000",
 			"resourceAccess": [
 				{
+					"id": "465a38f9-76ea-45b9-9f34-9e8b0d4b0b42",
+					"type": "Scope"
+				},
+				{
+					"id": "2b9c4092-424d-4249-948d-b43879977640",
+					"type": "Scope"
+				},
+				{
+					"id": "662d75ba-a364-42ad-adee-f5f880ea4878",
+					"type": "Scope"
+				},
+				{
+					"id": "1ec239c2-d7c9-4623-a91a-a9775856bb36",
+					"type": "Scope"
+				},
+				{
+					"id": "12466101-c9b8-439a-8589-dd09ee67e8e9",
+					"type": "Scope"
+				},
+				{
+					"id": "9d8982ae-4365-4f57-95e9-d6032a4c0b87",
+					"type": "Scope"
+				},
+				{
+					"id": "767156cb-16ae-4d10-8f8b-41b657c8c8c8",
+					"type": "Scope"
+				},
+				{
+					"id": "ebf0f66e-9fb1-49e4-a278-222f76911cf4",
+					"type": "Scope"
+				},
+				{
+					"id": "9ff7295e-131b-4d94-90e1-69fde507ac11",
+					"type": "Scope"
+				},
+				{
 					"id": "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0",
 					"type": "Scope"
 				},
 				{
+					"id": "570282fd-fa5c-430d-a7fd-fc8dc98a9dca",
+					"type": "Scope"
+				},
+				{
+					"id": "dfabfca6-ee36-4db2-8208-7a28381419b3",
+					"type": "Scope"
+				},
+				{
+					"id": "76bc735e-aecd-4a1d-8b4c-2b915deabb79",
+					"type": "Scope"
+				},
+				{
+					"id": "9c7a330d-35b3-4aa1-963d-cb2b9f927841",
+					"type": "Scope"
+				},
+				{
+					"id": "8d3c54a7-cf58-4773-bf81-c0cd6ad522bb",
+					"type": "Scope"
+				},
+				{
+					"id": "3a736c8a-018e-460a-b60c-863b2683e8bf",
+					"type": "Scope"
+				},
+				{
+					"id": "248f5528-65c0-4c88-8326-876c7236df5e",
+					"type": "Scope"
+				},
+				{
+					"id": "afdd6933-a0d8-40f7-bd1a-b5d778e8624b",
+					"type": "Scope"
+				},
+				{
 					"id": "14dad69e-099b-42c9-810b-d002981feec1",
+					"type": "Scope"
+				},
+				{
+					"id": "469cd065-729e-4dee-b1fa-d92e0fab6310",
+					"type": "Scope"
+				},
+				{
+					"id": "485be79e-c497-4b35-9400-0e3fa7f2a5d4",
+					"type": "Scope"
+				},
+				{
+					"id": "2497278c-d82d-46a2-b1ce-39d4cdde5570",
+					"type": "Scope"
+				},
+				{
+					"id": "0e755559-83fb-4b44-91d0-4cc721b9323e",
 					"type": "Scope"
 				},
 				{
@@ -334,10 +420,6 @@
 				},
 				{
 					"id": "fc023787-fd04-4e44-9bc7-d454f00c0f0a",
-					"type": "Role"
-				},
-				{
-					"id": "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9",
 					"type": "Role"
 				},
 				{
@@ -426,6 +508,10 @@
 				},
 				{
 					"id": "798ee544-9d2d-430c-a058-570e29e34338",
+					"type": "Role"
+				},
+				{
+					"id": "470229df-a15a-4b08-9d95-8c534862b362",
 					"type": "Role"
 				},
 				{
@@ -538,6 +624,42 @@
 				},
 				{
 					"id": "b9bb2381-47a4-46cd-aafb-00cb12f68504",
+					"type": "Role"
+				},
+				{
+					"id": "01d4889c-1287-42c6-ac1f-5d1e02578ef6",
+					"type": "Role"
+				},
+				{
+					"id": "4f0a8235-6f6f-4ec7-9500-34b452a4a0c3",
+					"type": "Role"
+				},
+				{
+					"id": "6679c91b-820a-4900-ab47-e97b197a89c4",
+					"type": "Role"
+				},
+				{
+					"id": "bf7b1a76-6e77-406b-b258-bf5c7720e98f",
+					"type": "Role"
+				},
+				{
+					"id": "5b567255-7703-4780-807c-7be8301ae99b",
+					"type": "Role"
+				},
+				{
+					"id": "62a82d76-70ea-41e2-9197-370581804d09",
+					"type": "Role"
+				},
+				{
+					"id": "98830695-27a2-44f7-8c18-0c3ebc9698f6",
+					"type": "Role"
+				},
+				{
+					"id": "dbaae8cf-10b5-4b86-a4a1-f871c94c6695",
+					"type": "Role"
+				},
+				{
+					"id": "f3c4f514-c65a-43f5-bfce-1735872258dd",
 					"type": "Role"
 				},
 				{
@@ -883,6 +1005,22 @@
 				{
 					"id": "d4f67ec2-59b5-4bdc-b4af-d78f6f9c1954",
 					"type": "Role"
+				},
+				{
+					"id": "332a536c-c7ef-4017-ab91-336970924f0d",
+					"type": "Role"
+				},
+				{
+					"id": "bc024368-1153-4739-b217-4326f2e966d0",
+					"type": "Scope"
+				},
+				{
+					"id": "5f8c59db-677d-491f-a6b8-5f174b11ec1d",
+					"type": "Scope"
+				},
+				{
+					"id": "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9",
+					"type": "Role"
 				}
 			]
 		},
@@ -912,8 +1050,7 @@
 			"https://localhost/index.cfm",
 			"https://localhost",
 			"https://space365.tpgarchitecture.com/auth",
-			"https://space365.tpgarchitecture.com/index.cfm",
-			"https://space365.tpgarchitecture.com"
+			"https://space365.tpgarchitecture.com/index.cfm"
 		],
 		"implicitGrantSettings": {
 			"enableAccessTokenIssuance": false,
@@ -951,10 +1088,6 @@
 			{
 				"uri": "https://space365.tpgarchitecture.com/index.cfm",
 				"index": null
-			},
-			{
-				"uri": "https://space365.tpgarchitecture.com",
-				"index": null
 			}
 		]
 	},
@@ -967,6 +1100,9 @@
 		"tokenEncryptionKeyId": true
 	},
 	"spa": {
-		"redirectUris": []
+		"redirectUris": [
+			"https://space365.tpgarchitecture.com",
+			"http://localhost:5173"
+		]
 	}
 }

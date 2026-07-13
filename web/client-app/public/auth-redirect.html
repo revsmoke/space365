@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Signing in…</title>
+    <!--
+      MSAL popup landing page. The main window's MSAL instance polls this
+      popup's URL, reads the auth code from the hash, and closes the window.
+      This page must stay script-free and must NEVER touch location.hash —
+      loading the full app here races the router against MSAL and strands
+      the popup (the bug this file fixes).
+    -->
+    <style>
+      body { margin: 0; display: grid; place-items: center; height: 100vh;
+             background: #0b0f1c; color: #93a4c8; font: 14px system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>Completing sign-in… this window will close itself.</body>
+</html>

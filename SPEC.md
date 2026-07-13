@@ -1,10 +1,13 @@
-# Space365 ("Minecraft meets Teams") - Technical Specification (SPEC)
+# Space365 ("Minecraft meets the Office") - Technical Specification (SPEC)
 
-- Doc version: 0.2 (draft)
-- Date: 2026-02-05
-- Source: `PRD.md`
+- Doc version: 0.3
+- Date: 2026-07-06 (v0.2: 2026-02-05)
+- Source: `PRD.md` (v0.5) + `PLAN.md` v1.0 + `docs/SPACETIMEDB/CAPABILITIES.md` + `docs/GRAPH_PERMISSIONS.md`
 - Priority: SPECs and tests are first-class deliverables
-- Runtime preference: Bun (if practical); otherwise Node.js or alternative per component needs
+- Runtime preference: Bun (tests, ingest, scripts); SpacetimeDB v2.6+ TypeScript module
+- v0.3 changes: SpacetimeDB 2.x reality (TS modules stable, views-not-RLS, schedule tables,
+  event tables, procedures), renderer decision three.js, expanded M365 surface (calendar,
+  Bookings, call records, audit), avatar multiplayer tables, concrete deployment
 
 ## 1) Scope and assumptions
 
@@ -29,16 +32,21 @@
 
 ## 2) Tech stack
 
-### Preferred (default)
-- SpaceTimeDB module: TypeScript
-- Ingestion gateway: Bun + TypeScript
-- Web client: React + Babylon.js + Vite (Bun for tooling)
-- Admin console: React (same monorepo as client)
-- Auth: Microsoft Entra ID (OIDC/MSAL)
+### Decided (PLAN.md v1.0 decision log D1–D10)
+- SpacetimeDB module: **TypeScript** (stable since STDB 2.0, V8 runtime, fastest vendor
+  benchmark; npm package `spacetimedb`, server lib `spacetimedb/server`)
+- Ingestion gateway: Bun + TypeScript (`Bun.serve`), writes via STDB TS SDK over WebSocket
+  with a service identity
+- Web client: **three.js** (world) + React (overlay UI) + Vite; STDB typed bindings via
+  `spacetime generate`; the SDK client cache is the scene-state source
+- Admin console: React route in the same client app (`web/admin` folder merges into client)
+- Auth: Microsoft Entra ID (OIDC/MSAL) → SpacetimeDB Identity (iss+sub); P0.4 spike,
+  fallback SpacetimeAuth or token-exchange service
 
 ### Acceptable alternatives
-- Ingestion gateway in Node.js or Rust if required by Graph tooling
-- UI runtime stays web-based regardless of backend choices
+- Babylon.js if three.js scene tooling proves insufficient (same SDK state layer)
+- Unity 6 WebGL / Godot as later native surfaces — no backend changes required
+- UI runtime stays web-browser-first regardless
 
 ## 3) Repo and package layout (proposed)
 
@@ -83,7 +91,11 @@ If throughput demands it, insert a queue between receiver and reducers. Default 
 
 ### Entra ID mapping
 - Roles mapped from AAD groups/claims
-- OIDC JWT (issuer+subject) is authoritative identity in SpaceTimeDB
+- OIDC JWT (issuer+subject) is authoritative identity in SpacetimeDB: the server validates any
+  standards-compliant OIDC ID token against the issuer's JWKS. Entra acceptance is unverified
+  upstream → **P0.4 spike**; fallbacks: SpacetimeAuth (managed OIDC) or a thin token-exchange
+  service. Module rejects identities whose `iss` is not our tenant in `client_connected`.
+- Tokenless (anonymous) connections: dev only; rejected by policy in pilot/prod.
 
 ### Membership model (source of truth + sync)
 - **Source of truth:** Microsoft Graph for team and channel membership.
@@ -103,14 +115,42 @@ If throughput demands it, insert a queue between receiver and reducers. Default 
 - `team_members`: `team_id`, `user_id`, `role`, `synced_at`
 - `channel_members`: `channel_id`, `user_id`, `role`, `synced_at`
 - `room_state`: `room_id`, `last_activity_at`, `glow_level`, `heat_level`
-- `presence`: `user_id`, `availability`, `activity`, `last_updated`
+- `presence`: `user_id`, `availability`, `activity`, `last_updated`, `source` (`graph` | `calendar_fallback`)
 - `activity_events`: `event_id`, `event_type`, `occurred_at`, `team_id`, `channel_id`, `actor_user_id?`, `message_id?`, `thread_id?`, `counts_delta?`
 - `channel_activity_agg`: `channel_id`, `window_start`, `msg_count`, `react_count`, `active_user_estimate`
 - `quests`: `quest_id`, `user_id`, `kind`, `title`, `source_ref`, `deeplink`, `created_at`, `status`
 - `config`: JSON blob for allowlists, thresholds, privacy toggles, retention
 - `audit_log`: `audit_id`, `actor_user_id`, `action`, `timestamp`, `payload_redacted`
-- `graph_cursors` (optional): `resource`, `delta_link`, `updated_at`
-- `ingest_dedup` (optional): `event_id`, `seen_at`, `ttl_expires_at`
+- `graph_cursors`: `resource`, `delta_link`, `updated_at`
+- `ingest_dedup`: `event_id`, `seen_at`, `ttl_expires_at` (pruned by schedule table)
+
+### Multiplayer / game tables (P3+)
+- `player_state`: `identity` (STDB Identity, pk), `user_id`, `x`, `y`, `z`, `heading`, `zone_id`,
+  `animation`, `emote?`, `updated_at` — written only by `move_player`/`set_emote` reducers;
+  subscribed zone-scoped (interest management)
+- `decorations`: `decoration_id`, `zone_id`, `owner_user_id`, `prop_kind`, `x`, `y`, `z`,
+  `rotation`, `placed_at` — per-user placement budget enforced in reducer
+- `achievements`: `achievement_id`, `team_id`, `kind`, `earned_at`, `window_ref` — team-level only
+
+### Expanded M365 surface tables (P4)
+- `meetings`: `event_id`, `organizer_team_id?`, `zone_id?`, `subject_redacted`, `starts_at`,
+  `ends_at`, `join_url?`, `state` (`upcoming`/`soon`/`live`/`ended`)
+- `bookings_appointments`: `appointment_id`, `business_id`, `service_name`, `starts_at`, `status`
+- `call_stats_agg`: `window_start`, `bucket` (hour), `call_count`, `total_minutes`, `modality`
+  — aggregates only; no participant lists in ambient tables
+- `subscription_health`: `graph_subscription_id`, `resource`, `expires_at`, `last_renewed_at`,
+  `state` (`active`/`expiring`/`failed`) — powers admin health board + stale-mode badge
+
+### Schedule tables (STDB-native timers; see docs/SPACETIMEDB/CAPABILITIES.md)
+- `tick_agg_windows` (interval 60s): window rollover for 1m/5m/1h aggregates
+- `tick_glow_decay` (interval ~5s): EMA decay for `room_state.glow_level`
+- `tick_retention` (interval 1h): prune `activity_events`, `ingest_dedup`, expired quests
+- `tick_ambient` (interval 60s): day/night + org-mood world params
+- `tick_subscription_watchdog` (interval 5m): flag `subscription_health` rows nearing expiry
+
+### Event tables (transient, in-transaction pub/sub — never stored)
+- `evt_room_burst`: `room_id`, `kind` (`spike`/`reaction_storm`/`new_thread`), `magnitude`
+  — drives client VFX without accumulating rows
 
 Notes:
 - `activity_events` is optional for audit/debug; disable if not needed to minimize storage.
@@ -222,25 +262,56 @@ Scale-up (only if needed):
 - All errors logged without message content
 - Ingestion failures increment metrics and trigger alerts
 
-## 10) SpaceTimeDB module specification
+## 10) SpacetimeDB module specification (v2.6+, TypeScript)
 
-### Reducers
-- `upsert_user_profile`
-- `upsert_team`
-- `upsert_channel`
-- `ingest_presence`
-- `ingest_channel_message_event`
-- `emit_aggregate_deltas`
-- `create_or_update_quest`
-- `admin_update_config`
+One module = the whole backend (BitCraft pattern). All writes go through reducers; all reads
+reach clients through views/subscriptions. Module structure: `schema({...})` wrapper, tables
+above, plus:
 
-### Authorization
-- Reducers enforce role checks and membership checks
-- Subscriptions enforce row-level visibility
+### Reducers (each = one atomic transaction; idempotent where fed by ingest)
+Ingest-facing (service identity only — enforced by identity allowlist in each reducer):
+- `upsert_user_profile`, `upsert_team`, `upsert_channel`, `sync_membership`
+- `ingest_presence` (accepts `source`: graph or calendar_fallback)
+- `ingest_channel_message_event` (dedup via unique `event_id` insert; emits `evt_room_burst`
+  event-table rows on spike detection)
+- `upsert_meeting`, `upsert_booking_appointment`, `ingest_call_record_agg`
+- `update_subscription_health`
+Client-facing:
+- `move_player`, `set_emote`, `place_decoration`, `remove_decoration` (budget + zone checks)
+- `set_personal_opt_in`, `dismiss_quest`
+- `create_or_update_quest` (OBO proxy path, owner-scoped)
+Admin-facing (role check via Entra group claim mapping in `config`):
+- `admin_update_config`, `admin_pause_ingest`, `admin_safe_mode`
+Lifecycle:
+- `init` (seed config, insert schedule-table rows), `client_connected` (validate token issuer =
+  our tenant; upsert `player_state` shell), `client_disconnected` (mark avatar away)
+Scheduled (private by default in 2.x):
+- `on_tick_agg_windows`, `on_tick_glow_decay`, `on_tick_retention`, `on_tick_ambient`,
+  `on_tick_subscription_watchdog`
 
-### Real-time fanout (let SpaceTimeDB do the work)
-- No custom WebSocket layer; rely on SpaceTimeDB subscriptions for all client updates.
-- Clients subscribe to aggregate views; reducers mutate tables and SpaceTimeDB handles diffing and fanout.
+### Views — THE authorization mechanism (RLS is experimental; do not use)
+- `ambient_world` (AnonymousViewContext — materialized once, shared): enabled public
+  teams/channels/room_state/aggregates per allowlist + privacy toggles. Cheap at any client count.
+- `visible_rooms` (ViewContext — per identity): adds member-gated private channels for members
+  only. Non-members receive no row (existence non-leak).
+- `my_quests` (ViewContext): quests where `user_id = caller`. The only other per-identity view;
+  keep narrow for fanout cost.
+- `admin_ops` (ViewContext, role-gated): config, audit_log, subscription_health, call/PSTN
+  detail, audit-wing data.
+- `players_in_zone` (parameterized subscription on `player_state` by zone): interest management.
+- Views must use indexed access only (full scans banned by STDB).
+
+### Procedures (stable in TS; manual transactions, outbound HTTP allowed)
+- `reconcile_resource(resource)`: pull-based Graph delta fetch via `ctx.http` as fallback when
+  the ingest service is down (≤180s; commits via `withTx`). Scheduled sparsely; primary path
+  remains the external ingest service.
+
+### Real-time fanout (let SpacetimeDB do the work)
+- No custom WebSocket layer anywhere; STDB subscriptions carry all client updates.
+- Confirmed reads are on by default (updates after durable commit); measure latency in P6.1 and
+  optionally disable per connection for the kiosk/game feel.
+- Client subscription hygiene: precise filters, subscribe-new-before-unsubscribe-old, no
+  overlapping result sets.
 
 ## 11) Client specification
 
@@ -295,10 +366,17 @@ Simplify where possible:
 - Dev, staging, prod
 - Feature flags for Tier C/D features
 
-### Hosting
-- Ingest + admin: Azure Container Apps or equivalent
-- SpaceTimeDB: Cloud pilot, Azure self-host for production if required
-- Web client: static hosting with CDN
+### Hosting (concrete; PLAN D7)
+- Dev: local `spacetime start` (:3000) on macOS; Vite dev server; webhook via dev tunnel
+  (cloudflared) to local ingest.
+- Pilot: SpacetimeDB Maincloud free tier (2,500 TeV/mo ≈ 3M reducer calls); ingest container +
+  static client on the tpgarchitecture server behind Nginx with the existing wildcard cert
+  (`ssl_certs/`); webhook at `https://space365.tpgarchitecture.com/api/graph/webhook`.
+- Prod: self-hosted SpacetimeDB via Docker (`clockworklabs/spacetime`) on the same host —
+  RAM-sized to dataset (all state in memory), `spacetime lock` enabled, systemd-managed;
+  nightly data-volume snapshots as backup (no self-host replication exists — restore drill
+  required, PLAN P6.4).
+- Client: Nginx static + optional CDN.
 
 ## 16) Observability, security, compliance
 

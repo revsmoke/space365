@@ -1,0 +1,11 @@
+FROM oven/bun:1.3
+
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY shared ./shared
+COPY ingest ./ingest
+COPY scripts ./scripts
+RUN bun install --frozen-lockfile || bun install
+
+EXPOSE 8787
+CMD ["bun", "run", "ingest/src/main.ts", "--serve"]

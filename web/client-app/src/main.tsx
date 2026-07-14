@@ -10,10 +10,13 @@ import './styles.css';
 // MSAL instance reads this window's hash and closes it. Booting here would
 // let the hash router destroy the auth code (redirects normally land on
 // /auth-redirect.html; this guard covers stale root redirect URIs).
+const hasAuthResponse = (part: string) => /[#?&](code|error|state)=/.test(part);
 const isAuthPopup =
   !!window.opener &&
   window.opener !== window &&
-  /[#?&](code|error|state)=/.test(window.location.hash || window.location.search);
+  // check hash AND search independently — a popup can carry a non-auth hash
+  // alongside a ?code= query (review: PR4)
+  (hasAuthResponse(window.location.hash) || hasAuthResponse(window.location.search));
 
 if (isAuthPopup) {
   document.body.innerHTML =

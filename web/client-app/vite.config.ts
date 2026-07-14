@@ -30,5 +30,12 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      input: {
+        main: path.resolve(here, 'index.html'),
+        // MSAL v5 popup landing page (runs the redirect bridge; see the file)
+        'auth-redirect': path.resolve(here, 'auth-redirect.html'),
+      },
+    },
   },
 });

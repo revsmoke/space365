@@ -18,7 +18,10 @@ const pca = new PublicClientApplication({
   auth: {
     clientId: ENTRA_CLIENT_ID,
     authority: `https://login.microsoftonline.com/${ENTRA_TENANT_ID}`,
-    redirectUri: window.location.origin,
+    // Dedicated blank landing page: the popup must NOT load the app — the
+    // app's hash router would consume the auth code before the opener's MSAL
+    // poll reads it, stranding the popup (the sign-in-in-popup bug).
+    redirectUri: `${window.location.origin}/auth-redirect.html`,
   },
   cache: { cacheLocation: 'localStorage' },
 });

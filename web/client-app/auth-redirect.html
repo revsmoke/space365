@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Signing in…</title>
+    <!--
+      MSAL v5 popup landing page. msal-browser v5 no longer polls the popup
+      URL from the opener — the redirect page must run the redirect bridge,
+      which BroadcastChannels the auth response to the main window and then
+      closes this popup. Loading the full app here instead would race the
+      hash router against the response (the original sign-in-in-popup bug).
+      This file is a Vite MPA entry so the import resolves from node_modules.
+    -->
+    <style>
+      body { margin: 0; display: grid; place-items: center; height: 100vh;
+             background: #0b0f1c; color: #93a4c8; font: 14px system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    Completing sign-in… this window will close itself.
+    <script type="module">
+      import { broadcastResponseToMainFrame } from '@azure/msal-browser/redirect-bridge';
+      broadcastResponseToMainFrame().catch((e) => {
+        document.body.textContent =
+          'Sign-in could not be completed: ' + (e?.message ?? e) + ' — you can close this window.';
+      });
+    </script>
+  </body>
+</html>
